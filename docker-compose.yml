@@ -1,0 +1,30 @@
+# Docker Compose for standalone OCPP Simulator
+# Accessible from any machine on the network via port 3100
+#
+# Usage:
+#   docker compose up -d --build
+#   docker compose down
+#
+# Access from another machine: http://<HOST_IP>:3100
+
+services:
+  ocpp-simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ocpp-simulator
+    restart: unless-stopped
+    # On startup the simulator auto-spawns ONE charger from these vars and
+    # connects it to the gateway — no manual API call needed. Add more
+    # chargers at runtime via the dashboard or POST /api/chargers.
+    environment:
+      GATEWAY_URL: ${GATEWAY_URL:-ws://host.gateway.docker.internal:8081}
+      STATION_ID: ${SIMULATOR_STATION_ID:-EVR-SIMULATOR-001}
+      OCPP_PROTOCOL: ${OCPP_PROTOCOL:-2.0.1}
+    command: >
+      node simulator.js
+      --port 3100
+    ports:
+      - "0.0.0.0:3100:3100"
+    extra_hosts:
+      - "host.gateway.docker.internal:host-gateway"

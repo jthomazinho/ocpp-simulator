@@ -1,0 +1,13 @@
+{
+  "name": "ocpp-simulator",
+  "version": "1.0.0",
+  "description": "Everest OCPP 2.0.1 Charger Simulator for CSMS",
+  "main": "simulator.js",
+  "scripts": {
+    "start": "node simulator.js",
+    "dev": "node simulator.js --port 3100"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}
