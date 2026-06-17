@@ -20,6 +20,21 @@ The only runtime dependency is [`ws`](https://www.npmjs.com/package/ws).
 
 ## Install & run
 
+### Quickest — one-line installer
+
+```bash
+# Fresh machine (clones, installs, prints how to run):
+curl -fsSL https://raw.githubusercontent.com/jthomazinho/ocpp-simulator/main/install.sh | bash
+
+# …or clone+install+start in one go, auto-connecting a charger to a gateway:
+curl -fsSL https://raw.githubusercontent.com/jthomazinho/ocpp-simulator/main/install.sh \
+  | bash -s -- --gateway ws://<csms-gateway-host>:8081 --start
+```
+
+`install.sh` auto-detects Docker (preferred) or Node, fetches the repo and sets
+everything up. Run `./install.sh --help` for all flags
+(`--docker`/`--node`, `--dir`, `--gateway`, `--station`, `--protocol`, `--start`).
+
 ### Option A — Docker (recommended)
 
 ```bash
