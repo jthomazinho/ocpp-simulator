@@ -138,6 +138,12 @@ function buildOcppPath(gatewayUrl, version, stationId) {
   if (isLegacyGatewayUrl(base)) {
     return `${base}/${stationId}`;
   }
+  // Proxy whose base path already carries the OCPP version (e.g. the LAB
+  // nginx: wss://ocpp.power.spotside.dev/2.0.1/<stationId>) — append only
+  // the station id instead of the staging-style /api/ocpp/<version> prefix.
+  if (/\/(1\.6|2\.0\.1)$/.test(base)) {
+    return `${base}/${stationId}`;
+  }
   return `${base}/api/ocpp/${version}/${stationId}`;
 }
 
