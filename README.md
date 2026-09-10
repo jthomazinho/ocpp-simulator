@@ -198,3 +198,32 @@ curl -X POST http://localhost:3100/api/chargers/sim-dy-1/set-electrical \
 # 3. Dispatch a profile in A. Expected: cap honoured, Current.Import
 #    matches A=<limit>, Power = A × V.
 ```
+
+## Bench harness — `bench/dualgun-sim.js`
+
+Minimal OCPP 2.0.1 station with **two EVSEs** (both `connectorId 1`), used to exercise per-gun
+behaviour of a CSMS — RemoteStart targeting, per-EVSE charging profiles, QR gun selection and
+RFID taps — without hardware. It talks straight to the gateway over WSS with Basic Auth
+(security profile 1) and exposes a local HTTP control plane so a test can drive it.
+
+```bash
+STATION_ID=EVR-CN-201-072144 \
+OCPP_BASIC_AUTH="EVR-CN-201-072144:<password>" \
+GATEWAY_URL="wss://ocpp.example.com/2.0.1" \
+node bench/dualgun-sim.js
+```
+
+| Endpoint (`127.0.0.1:3179`) | Effect |
+|---|---|
+| `GET /state` | status, energy, power and active cap of both EVSEs |
+| `GET /calls` | last calls received from the CSMS |
+| `GET /status?evse=1&s=Occupied` | push a `StatusNotification` |
+| `GET /authorize?token=04B1C7D2` | `Authorize` only, no transaction |
+| `GET /badge?evse=2&token=04B1C7D2` | RFID tap: `Authorize` + locally started transaction |
+| `GET /meter?evse=1&kwh=3` | fast-forward the energy register and push `MeterValues` |
+| `GET /stop?evse=2` | end that EVSE's transaction |
+
+MeterValues carry the transaction context a real charger sends — `Transaction.Begin` on the
+Started event, `Transaction.End` on the Ended event, `Sample.Periodic` in between. A CSMS that
+derives the session baseline from that marker will otherwise drop the first interval of energy
+from the bill.
