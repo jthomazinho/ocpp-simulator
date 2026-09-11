@@ -11,6 +11,20 @@
 //     GET /badge?evse=2&token=04B1C7D2    RFID tap: Authorize + local start
 //     GET /meter?evse=1&kwh=3             fast-forward the energy register
 //     GET /stop?evse=2                    end that EVSE's transaction
+//     GET /mode?dy=1                      DY3225 firmware quirks on/off (see below)
+//     GET /hold?evse=1&on=1               accept RequestStartTransaction but hold the start
+//     GET /release?evse=1                 run the oldest held start now (a late start)
+//     GET /reboot?stale=1                 reboot: BootNotification, transactions dropped;
+//                                         stale=1 also replays a malformed Ended
+//
+//   DY mode (env DY_MODE=1 or /mode?dy=1) reproduces what the OVROD DY3225
+//   (fw 1.0.1) did on the 2026-09-11 bench, which is what exposed the CSMS
+//   dual-gun and billing defects:
+//     - each gun keeps a LIFETIME odometer (gun 1 starts at 91.577 kWh, gun 2
+//       at 12.300 kWh) instead of a per-transaction register;
+//     - every TransactionEvent carries seqNo 0;
+//     - `evse` is sent on the Started only (Updated/Ended omit it);
+//     - standalone MeterValues keep flowing next to the TransactionEvents.
 const WebSocket = require('ws');
 const http = require('http');
 const { randomUUID } = require('crypto');
@@ -24,11 +38,26 @@ const WS_URL = `${BASE}/${STATION}`;
 const RATED_W = 11000, VOLTAGE = 230, PHASES = 3;
 const METER_PERIOD_MS = 20000;
 
+// Lifetime odometers of the DY3225 bench guns (Wh), used in DY mode.
+const DY_ODOMETER_WH = { 1: 91577, 2: 12300 };
+
 const evse = (id) => ({
   id, status: 'Available', transactionId: null, seqNo: 0, meterWh: 0,
   idToken: null, cap: null, timer: null, profiles: [],
+  hold: false, heldStarts: [],
 });
-const state = { connected: false, boot: null, evses: { 1: evse(1), 2: evse(2) }, calls: [], authorizations: [] };
+const state = {
+  connected: false, boot: null, evses: { 1: evse(1), 2: evse(2) }, calls: [], authorizations: [],
+  dyMode: process.env.DY_MODE === '1',
+};
+
+// In DY mode the register is the gun's lifetime odometer.
+function applyMode() {
+  for (const e of Object.values(state.evses)) {
+    if (state.dyMode && e.meterWh < DY_ODOMETER_WH[e.id]) e.meterWh = DY_ODOMETER_WH[e.id];
+  }
+}
+applyMode();
 const pending = new Map();
 let ws;
 
@@ -76,16 +105,19 @@ function meterSample(e, context = 'Sample.Periodic') {
 }
 
 function transactionEvent(e, eventType, triggerReason, extra = {}) {
+  const seqNo = state.dyMode ? 0 : e.seqNo++;
+  // A conformant charger may omit `evse` after the first event; the DY does.
+  const withEvse = !state.dyMode || eventType === 'Started';
   return call('TransactionEvent', {
     eventType,
     timestamp: new Date().toISOString(),
     triggerReason,
-    seqNo: e.seqNo++,
+    seqNo,
     transactionInfo: {
       transactionId: e.transactionId,
       chargingState: eventType === 'Ended' ? 'Idle' : 'Charging',
     },
-    evse: { id: e.id, connectorId: 1 },
+    ...(withEvse ? { evse: { id: e.id, connectorId: 1 } } : {}),
     ...(e.idToken ? { idToken: e.idToken } : {}),
     // Real chargers tag the first/last reading of a transaction, which is what
     // the CSMS uses as the session baseline; without it the first interval of
@@ -101,7 +133,8 @@ async function startTransaction(e, idToken, remoteStartId, triggerReason = 'Remo
   e.transactionId = randomUUID();
   e.idToken = idToken;
   e.seqNo = 0;
-  e.meterWh = 0;
+  // Per-transaction register, unless the DY's lifetime odometer is on.
+  if (!state.dyMode) e.meterWh = 0;
   await statusNotification(e.id, 'Occupied');
   await transactionEvent(e, 'Started', triggerReason,
     remoteStartId ? { transactionInfo: { transactionId: e.transactionId, chargingState: 'Charging', remoteStartId } } : {});
@@ -153,6 +186,13 @@ function handleCall(action, payload) {
     case 'RequestStartTransaction': {
       const e = state.evses[payload.evseId || 1];
       if (!e) return { status: 'Rejected' };
+      if (e.hold) {
+        // Accepted, but the Started only goes out on /release — the late
+        // start the DY produced after its QR session had been closed.
+        e.heldStarts.push({ idToken: payload.idToken, remoteStartId: payload.remoteStartId, t: new Date().toISOString() });
+        log(`EVSE ${e.id}: start held (${e.heldStarts.length} waiting)`);
+        return { status: 'Accepted' };
+      }
       setTimeout(() => startTransaction(e, payload.idToken, payload.remoteStartId).catch((x) => log('start failed', x.message)), 500);
       return { status: 'Accepted' };
     }
@@ -235,12 +275,37 @@ function connect() {
   ws.on('unexpected-response', (_req, res) => log('handshake refused:', res.statusCode));
 }
 
+// Reboot: the socket stays up (a real reboot reconnects within seconds), but
+// the station reports a fresh boot and every running transaction is lost.
+// `stale` replays the malformed Ended the DY kept resending after its reboot
+// (empty transactionId, empty idToken type, 1970 timestamp).
+async function reboot(stale) {
+  for (const e of Object.values(state.evses)) {
+    clearInterval(e.timer); e.timer = null;
+    e.transactionId = null; e.idToken = null;
+  }
+  state.boot = await call('BootNotification', {
+    reason: 'PowerUp',
+    chargingStation: { model: 'DGS-22 Dual', vendorName: 'Spotside Bench', firmwareVersion: '1.0.1', serialNumber: STATION },
+  });
+  await statusNotification(1, 'Occupied');
+  await statusNotification(2, 'Occupied');
+  if (!stale) return { boot: state.boot };
+  const replay = await call('TransactionEvent', {
+    eventType: 'Ended', timestamp: '1970-01-01T00:00:35.000Z', triggerReason: 'RemoteStop', seqNo: 0,
+    idToken: { type: '', idToken: '' }, evse: { id: 1, connectorId: 1 },
+    transactionInfo: { transactionId: '', stoppedReason: 'PowerLoss', chargingState: 'EVConnected', remoteStartId: 0 },
+  }).then((r) => ({ ok: true, r }), (err) => ({ ok: false, err: err.message }));
+  return { boot: state.boot, staleEnded: replay };
+}
+
 const view = () => ({
   connected: state.connected,
+  dyMode: state.dyMode,
   evses: Object.values(state.evses).map((e) => ({
     id: e.id, status: e.status, transactionId: e.transactionId,
     kwh: +(e.meterWh / 1000).toFixed(3), powerW: e.transactionId ? effectiveW(e) : 0,
-    cap: e.cap, profiles: e.profiles,
+    cap: e.cap, profiles: e.profiles, hold: e.hold, heldStarts: e.heldStarts.length,
   })),
   calls: state.calls.length,
   authorizations: state.authorizations.slice(-5),
@@ -281,6 +346,32 @@ http.createServer((req, res) => {
     const push = call('MeterValues', { evseId: e.id, meterValue: meterSample(e) })
       .then(() => transactionEvent(e, 'Updated', 'MeterValuePeriodic'));
     push.then(() => res.end(JSON.stringify({ ok: true, kwh: +(e.meterWh / 1000).toFixed(4) })))
+      .catch((err) => res.end(JSON.stringify({ ok: false, err: err.message })));
+    return;
+  }
+  if (u.pathname === '/mode') {
+    state.dyMode = u.searchParams.get('dy') === '1';
+    applyMode();
+    return res.end(JSON.stringify(view(), null, 1));
+  }
+  if (u.pathname === '/hold') {
+    const e = state.evses[u.searchParams.get('evse') || '1'];
+    if (!e) return res.end(JSON.stringify({ ok: false }));
+    e.hold = u.searchParams.get('on') !== '0';
+    return res.end(JSON.stringify({ ok: true, evse: e.id, hold: e.hold, heldStarts: e.heldStarts.length }));
+  }
+  if (u.pathname === '/release') {
+    const e = state.evses[u.searchParams.get('evse') || '1'];
+    const held = e && e.heldStarts.shift();
+    if (!held) return res.end(JSON.stringify({ ok: false, err: 'nothing held' }));
+    startTransaction(e, held.idToken, held.remoteStartId)
+      .then(() => res.end(JSON.stringify({ ok: true, released: held, transactionId: e.transactionId })))
+      .catch((err) => res.end(JSON.stringify({ ok: false, err: err.message })));
+    return;
+  }
+  if (u.pathname === '/reboot') {
+    reboot(u.searchParams.get('stale') === '1')
+      .then((r) => res.end(JSON.stringify(r)))
       .catch((err) => res.end(JSON.stringify({ ok: false, err: err.message })));
     return;
   }
