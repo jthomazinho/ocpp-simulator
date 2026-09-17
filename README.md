@@ -227,3 +227,24 @@ MeterValues carry the transaction context a real charger sends — `Transaction.
 Started event, `Transaction.End` on the Ended event, `Sample.Periodic` in between. A CSMS that
 derives the session baseline from that marker will otherwise drop the first interval of energy
 from the bill.
+
+### One Call at a time, and a socket that admits it is dead
+
+Two things the harness got wrong until 2026-09-17, both of which made a healthy CSMS look
+broken on the bench:
+
+- **Pipelining.** Each periodic tick fired the `MeterValues` and the matching
+  `TransactionEvent` at the same moment. OCPP-J allows one Call in flight per direction, so
+  the gateway answered one of them `RpcFrameworkError: Call already in progress` — every
+  tick, for the whole session. The tick now waits for the first reply before sending the
+  second. DY mode keeps the pipelining, because reproducing that firmware quirk is what DY
+  mode is for.
+- **A socket nobody checked.** When the peer disappears without a FIN — a VPN that drops, a
+  balancer that forgets the connection — the WebSocket stays `OPEN` on this side: sends
+  succeed into the void, no `close` fires, and the harness keeps "charging" while the CSMS
+  sees nothing and reaps the session as offline. The harness now pings every 30 s and drops
+  the socket when the pong does not come back, so the reconnect runs; sends attempted on a
+  closed socket are logged instead of being swallowed by an empty `catch`.
+
+If a bench run shows energy climbing here while the CSMS sits still, read the log for `!!!`
+lines before blaming the CSMS.

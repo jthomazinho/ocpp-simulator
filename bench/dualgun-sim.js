@@ -60,17 +60,34 @@ function applyMode() {
 applyMode();
 const pending = new Map();
 let ws;
+let pingTimer = null;
+let heartbeatTimer = null;
+let alive = false;
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 
 function call(action, payload) {
   const id = randomUUID();
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    // A charger that cannot reach the CSMS knows it. Silencing this is what
+    // made the 2026-09-17 bench look like a CSMS defect: the meter kept
+    // climbing locally while nothing arrived, and the run was read as
+    // "the CSMS stopped applying MeterValues".
+    log('!!! not sent, socket is', ws ? ws.readyState : 'absent', '-', action);
+    return Promise.reject(new Error('socket not open'));
+  }
   ws.send(JSON.stringify([2, id, action, payload]));
   log('>>>', action, JSON.stringify(payload).slice(0, 300));
   return new Promise((res, rej) => {
     pending.set(id, { res, rej });
     setTimeout(() => { if (pending.delete(id)) rej(new Error('timeout ' + action)); }, 30000);
   });
+}
+
+// Every send that is not awaited goes through here, so a rejection is logged
+// instead of vanishing into an empty catch.
+function fireAndLog(promise, what) {
+  return promise.catch((err) => log('!!!', what, 'failed:', err.message));
 }
 
 function statusNotification(evseId, status) {
@@ -140,8 +157,20 @@ async function startTransaction(e, idToken, remoteStartId, triggerReason = 'Remo
     remoteStartId ? { transactionInfo: { transactionId: e.transactionId, chargingState: 'Charging', remoteStartId } } : {});
   e.timer = setInterval(() => {
     e.meterWh += (effectiveW(e) * METER_PERIOD_MS) / 3600000;
-    call('MeterValues', { evseId: e.id, meterValue: meterSample(e) }).catch(() => {});
-    transactionEvent(e, 'Updated', 'MeterValuePeriodic').catch(() => {});
+    // OCPP-J allows one Call in flight at a time: the MeterValues has to be
+    // answered before the TransactionEvent goes out. Sending both at once
+    // (what this harness did until 2026-09-17) makes the CSMS refuse one of
+    // them with `Call already in progress` on every single tick. DY mode
+    // keeps the pipelining on purpose — that is the firmware quirk it exists
+    // to reproduce.
+    const tick = state.dyMode
+      ? Promise.all([
+          fireAndLog(call('MeterValues', { evseId: e.id, meterValue: meterSample(e) }), 'MeterValues'),
+          fireAndLog(transactionEvent(e, 'Updated', 'MeterValuePeriodic'), 'TransactionEvent Updated'),
+        ])
+      : fireAndLog(call('MeterValues', { evseId: e.id, meterValue: meterSample(e) }), 'MeterValues')
+          .then(() => fireAndLog(transactionEvent(e, 'Updated', 'MeterValuePeriodic'), 'TransactionEvent Updated'));
+    void tick;
   }, METER_PERIOD_MS);
   log(`EVSE ${e.id}: transaction ${e.transactionId} started`);
 }
@@ -247,9 +276,28 @@ function connect() {
       });
       await statusNotification(1, 'Available');
       await statusNotification(2, 'Available');
-      setInterval(() => call('Heartbeat', {}).catch(() => {}), 60000);
+      heartbeatTimer = setInterval(() => fireAndLog(call('Heartbeat', {}), 'Heartbeat'), 60000);
     } catch (e) { log('boot failed:', e.message); }
+
+    // Dead-socket detection. A WebSocket whose peer disappears without a FIN
+    // — a VPN that drops, a load balancer that forgets the connection — stays
+    // `OPEN` on this side for ever: sends succeed into the void and no
+    // 'close' fires, so the harness keeps "charging" while the CSMS sees
+    // nothing and reaps the session as offline. That is exactly what the
+    // 2026-09-17 bench run looked like. Ping every 30 s and drop the socket
+    // when a pong does not come back, which lets the reconnect below run.
+    alive = true;
+    pingTimer = setInterval(() => {
+      if (!alive) {
+        log('!!! no pong in 30s — dropping the socket to force a reconnect');
+        return ws.terminate();
+      }
+      alive = false;
+      ws.ping();
+    }, 30000);
   });
+
+  ws.on('pong', () => { alive = true; });
 
   ws.on('message', (raw) => {
     let msg; try { msg = JSON.parse(raw.toString()); } catch { return; }
@@ -270,7 +318,13 @@ function connect() {
     }
   });
 
-  ws.on('close', (c) => { state.connected = false; log('closed', c); setTimeout(connect, 5000); });
+  ws.on('close', (c) => {
+    state.connected = false;
+    clearInterval(pingTimer); pingTimer = null;
+    clearInterval(heartbeatTimer); heartbeatTimer = null;
+    log('closed', c);
+    setTimeout(connect, 5000);
+  });
   ws.on('error', (e) => log('ws error:', e.message));
   ws.on('unexpected-response', (_req, res) => log('handshake refused:', res.statusCode));
 }
