@@ -147,9 +147,31 @@ function buildOcppPath(gatewayUrl, version, stationId) {
   return `${base}/api/ocpp/${version}/${stationId}`;
 }
 
-function buildWebSocketOptions(gatewayUrl) {
+// Normalises whatever the caller gave us into the "user:password" form the
+// header needs. A charger on security profile 1 authenticates with its own
+// station id as the user, so a bare password is enough — `basicAuth` accepts
+// either shape.
+function normaliseBasicAuth(basicAuth, stationId) {
+  if (!basicAuth) return null;
+  const value = String(basicAuth).trim();
+  if (!value) return null;
+  return value.includes(':') ? value : `${stationId}:${value}`;
+}
+
+// Credentials, most specific first: the per-charger value set when the
+// charger was created, then the process-wide OCPP_BASIC_AUTH / OCPP_PASSWORD
+// env (which keeps the docker-compose and single-charger flows working).
+function resolveBasicAuth(stationId, perChargerAuth) {
+  return (
+    normaliseBasicAuth(perChargerAuth, stationId) ||
+    normaliseBasicAuth(process.env.OCPP_BASIC_AUTH, stationId) ||
+    normaliseBasicAuth(process.env.OCPP_PASSWORD, stationId)
+  );
+}
+
+function buildWebSocketOptions(gatewayUrl, stationId, perChargerAuth) {
   if (isLegacyGatewayUrl(gatewayUrl)) return undefined;
-  const creds = process.env.OCPP_BASIC_AUTH;
+  const creds = resolveBasicAuth(stationId, perChargerAuth);
   if (!creds) return undefined;
   const token = Buffer.from(creds, 'utf8').toString('base64');
   return { headers: { Authorization: `Basic ${token}` } };
@@ -157,6 +179,7 @@ function buildWebSocketOptions(gatewayUrl) {
 
 const GATEWAY_PRESETS = {
   local: 'ws://localhost:8081',
+  dev: 'wss://ocpp.power.spotside.dev/2.0.1',
   staging: 'wss://power-staging.spotside.com',
   stagingNode2: 'ws://192.168.34.202:8081',
 };
@@ -178,9 +201,10 @@ const CONNECTOR_TYPES = [
 const DEFAULT_CONNECTOR_TYPE = CONNECTOR_TYPES[0]; // Type 2
 
 class ChargerInstance {
-  constructor(stationId, gatewayUrl, connectorTypeId) {
+  constructor(stationId, gatewayUrl, connectorTypeId, basicAuth) {
     this.stationId = stationId;
     this.gatewayUrl = gatewayUrl;
+    this.basicAuth = basicAuth || null;
     this.protocol = '2.0.1';
     this.ocppWs = null;
     this.pendingCalls = new Map();
@@ -1164,7 +1188,11 @@ class ChargerInstance {
     const url = buildOcppPath(this.gatewayUrl, '2.0.1', this.stationId);
     this.log('INFO', `Connecting to ${url} ...`);
 
-    this.ocppWs = new WebSocket(url, ['ocpp2.0.1'], buildWebSocketOptions(this.gatewayUrl));
+    this.ocppWs = new WebSocket(
+      url,
+      ['ocpp2.0.1'],
+      buildWebSocketOptions(this.gatewayUrl, this.stationId, this.basicAuth),
+    );
 
     this.ocppWs.on('open', async () => {
       this.state.connected = true;
@@ -1286,9 +1314,10 @@ class ChargerInstance {
 // (CitrineOS) accepts. Shares the same WebSocket framing pattern as the
 // 2.0.1 class but uses the OCPP 1.6 message names and payload shapes.
 class ChargerInstance16 {
-  constructor(stationId, gatewayUrl, connectorTypeId) {
+  constructor(stationId, gatewayUrl, connectorTypeId, basicAuth) {
     this.stationId = stationId;
     this.gatewayUrl = rewriteGatewayPortForVersion(gatewayUrl, '1.6');
+    this.basicAuth = basicAuth || null;
     this.protocol = '1.6';
     this.ocppWs = null;
     this.pendingCalls = new Map();
@@ -1915,7 +1944,11 @@ class ChargerInstance16 {
     const url = buildOcppPath(this.gatewayUrl, '1.6', this.stationId);
     this.log('INFO', `Connecting to ${url} (ocpp1.6) ...`);
 
-    this.ocppWs = new WebSocket(url, ['ocpp1.6'], buildWebSocketOptions(this.gatewayUrl));
+    this.ocppWs = new WebSocket(
+      url,
+      ['ocpp1.6'],
+      buildWebSocketOptions(this.gatewayUrl, this.stationId, this.basicAuth),
+    );
 
     this.ocppWs.on('open', async () => {
       this.state.connected = true;
@@ -2087,7 +2120,7 @@ const server = http.createServer(async (req, res) => {
       try {
         if (urlParts[0] === 'chargers') {
           if (urlParts.length === 1) {
-            const { stationId, gatewayUrl, connectorTypeId, protocol } = parsed;
+            const { stationId, gatewayUrl, connectorTypeId, protocol, basicAuth, password } = parsed;
             const ocppVersion = OCPP_VERSIONS.includes(protocol) ? protocol : DEFAULT_OCPP_VERSION;
             if (!stationId || !gatewayUrl) {
               result = { error: 'stationId and gatewayUrl are required' };
@@ -2097,10 +2130,11 @@ const server = http.createServer(async (req, res) => {
               result = { error: `Maximum of ${MAX_CHARGERS} chargers reached` };
             } else {
               const finalGatewayUrl = rewriteGatewayPortForVersion(gatewayUrl, ocppVersion);
+              const credential = basicAuth || password || null;
               const instance =
                 ocppVersion === '1.6'
-                  ? new ChargerInstance16(stationId, finalGatewayUrl, connectorTypeId)
-                  : new ChargerInstance(stationId, finalGatewayUrl, connectorTypeId);
+                  ? new ChargerInstance16(stationId, finalGatewayUrl, connectorTypeId, credential)
+                  : new ChargerInstance(stationId, finalGatewayUrl, connectorTypeId, credential);
               chargers.set(stationId, instance);
               broadcastChargerList();
               result = { ok: true, stationId, protocol: ocppVersion, gatewayUrl: finalGatewayUrl, connectorType: instance.connectorType };
@@ -2360,8 +2394,8 @@ function autoStartFromEnv() {
     const finalGatewayUrl = rewriteGatewayPortForVersion(gatewayUrl, protocol);
     const instance =
       protocol === '1.6'
-        ? new ChargerInstance16(stationId, finalGatewayUrl, undefined)
-        : new ChargerInstance(stationId, finalGatewayUrl, undefined);
+        ? new ChargerInstance16(stationId, finalGatewayUrl, undefined, undefined)
+        : new ChargerInstance(stationId, finalGatewayUrl, undefined, undefined);
     chargers.set(stationId, instance);
     broadcastChargerList();
     console.log(

@@ -663,11 +663,16 @@
   <div class="field field-gw">
     <label>Gateway (host)</label>
     <select id="newGateway">
+      <option value="wss://ocpp.power.spotside.dev/2.0.1">DEV (power.spotside.dev, public)</option>
       <option value="ws://localhost:8081">Local (localhost)</option>
       <option value="wss://power-staging.spotside.com">Staging (power-staging)</option>
       <option value="ws://192.168.34.204:8081">Staging Direct (192.168.34.204:8081, VPN)</option>
       <option value="ws://192.168.34.202:8081">Staging Node2 Direct (192.168.34.202:8081, VPN)</option>
     </select>
+  </div>
+  <div class="field" style="min-width:150px">
+    <label>OCPP password</label>
+    <input id="newBasicAuth" type="password" placeholder="profile 1 only" autocomplete="off">
   </div>
   <div class="field field-ct">
     <label>Connector Type</label>
@@ -691,6 +696,7 @@
       <label>Frontend URL (QR Code)</label>
       <select id="csmsEnvSelect" style="width:140px" onchange="document.getElementById('csmsBaseUrl').value=this.value;document.getElementById('csmsBaseUrl').dispatchEvent(new Event('input'))">
         <option value="http://192.168.13.47:5173">Local</option>
+        <option value="https://power.spotside.dev">DEV</option>
         <option value="https://power-staging.spotside.com">Staging</option>
       </select>
     </div>
@@ -852,9 +858,12 @@
     var gatewayUrl = document.getElementById('newGateway').value;
     var connectorTypeId = document.getElementById('newConnectorType').value;
     var protocol = document.getElementById('newProtocol').value;
+    // Security profile 1 gateways (DEV/PROD) authenticate the station with
+    // HTTP Basic Auth; a bare password here is paired with the station id.
+    var basicAuth = document.getElementById('newBasicAuth').value.trim();
     if (!stationId) { alert('Station ID is required'); return; }
 
-    api('chargers', { stationId: stationId, gatewayUrl: gatewayUrl, connectorTypeId: connectorTypeId, protocol: protocol }).then(function(result) {
+    api('chargers', { stationId: stationId, gatewayUrl: gatewayUrl, connectorTypeId: connectorTypeId, protocol: protocol, basicAuth: basicAuth || undefined }).then(function(result) {
       if (!result || result.error) { alert(result ? result.error : 'Unknown error'); return; }
 
       var ct = result.connectorType || { name: 'Type 2', maxPowerW: 22000 };
