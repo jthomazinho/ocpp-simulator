@@ -199,6 +199,57 @@ curl -X POST http://localhost:3100/api/chargers/sim-dy-1/set-electrical \
 #    matches A=<limit>, Power = A × V.
 ```
 
+## Local charger against the DEV CSMS — `run-dev-charger.sh`
+
+One virtual charger running on this machine, talking to the public DEV gateway. Only the
+websocket leaves the box; the dashboard stays on `http://localhost:3100`.
+
+```bash
+STATION_ID=1200032211102416 OCPP_PASSWORD='<station password>' ./run-dev-charger.sh
+```
+
+The script pre-flights the handshake (a wrong password fails in two seconds instead of
+looping on reconnect), then auto-starts the station and dials the gateway, so the charger is
+online — BootNotification accepted, `StatusNotification` sent — without a click on the
+dashboard.
+
+Two things it refuses to paper over:
+
+- **The Spotside VPN.** The full tunnel routes away from OVH, so `power.spotside.dev` is
+  unreachable while `tun0` is up. Drop it first:
+  `nmcli con down Spotside_Server_joaothomazinho`.
+- **Security profile 1.** The public endpoint rejects an unauthenticated charger with a 401
+  at the upgrade. The station authenticates with its own id as the Basic Auth user, so
+  `OCPP_PASSWORD` is enough; `OCPP_BASIC_AUTH='<id>:<password>'` also works.
+
+### Provisioning the station password
+
+The gateway checks the password against a PBKDF2 hash stored in the device model
+(`SecurityCtrlr` / `BasicAuthPassword`). The supported path is the gateway's own endpoint
+(`scripts/provision-station-credentials.py`), which pushes the key to the charger over the
+live OCPP link — but an offline station can never be reached that way. For a station that is
+already offline, write the hash straight into the device model (LAB Postgres, e.g. through
+`scripts/lab-psql.py`):
+
+```js
+// node — the format the gateway's Pbkdf2 produces and verifies
+const { pbkdf2Sync, randomBytes } = require('crypto');
+const salt = randomBytes(16).toString('hex');
+const hash = pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+console.log(`PBKDF2:1000:64:sha512:${salt}:${hash}`);
+```
+
+```sql
+update "VariableAttributes" va set value = '<hash>', "updatedAt" = now()
+from "Variables" v, "Components" c
+where v.id = va."variableId" and c.id = va."componentId"
+  and v.name = 'BasicAuthPassword' and c.name = 'SecurityCtrlr'
+  and va."stationId" = '<station id>' and va.type = 'Actual';
+```
+
+Use 16+ characters: the gateway's password endpoint enforces that length, and a shorter key
+is rejected the next time the credential is rotated through the supported path.
+
 ## Bench harness — `bench/dualgun-sim.js`
 
 Minimal OCPP 2.0.1 station with **two EVSEs** (both `connectorId 1`), used to exercise per-gun

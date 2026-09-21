@@ -2390,13 +2390,19 @@ function autoStartFromEnv() {
 
   if (chargers.has(stationId)) return;
 
+  const credential = process.env.OCPP_BASIC_AUTH || process.env.OCPP_PASSWORD || undefined;
+
   try {
     const finalGatewayUrl = rewriteGatewayPortForVersion(gatewayUrl, protocol);
     const instance =
       protocol === '1.6'
-        ? new ChargerInstance16(stationId, finalGatewayUrl, undefined, undefined)
-        : new ChargerInstance(stationId, finalGatewayUrl, undefined, undefined);
+        ? new ChargerInstance16(stationId, finalGatewayUrl, undefined, credential)
+        : new ChargerInstance(stationId, finalGatewayUrl, undefined, credential);
     chargers.set(stationId, instance);
+    // An auto-started charger is expected to come up online: creating the
+    // instance only registers it, so dial the gateway here instead of
+    // waiting for a Connect click on the dashboard.
+    instance.connect();
     broadcastChargerList();
     console.log(
       `  Auto-started : ${stationId} (OCPP ${protocol}) → ${finalGatewayUrl}\n`,
