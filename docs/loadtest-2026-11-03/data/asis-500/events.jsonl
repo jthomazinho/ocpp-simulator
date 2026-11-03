@@ -1,0 +1,22 @@
+{"ev":"note","at":1793732792587,"msg":"start N=500 ramp=50 tx=0.2 mix16=0.3"}
+{"ev":"note","at":1793732973169,"msg":"ramp done connected=500 booted=581 after 180s"}
+{"ev":"note","at":1793733093176,"msg":"steady 120s done"}
+{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000031","sentAt":1793733095233}
+{"ev":"cmd","version":"1.6","action":"remoteStartTransaction","station":"7300881000000003","sentAt":1793733095510}
+{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000032","sentAt":1793733097798}
+{"ev":"cmd","version":"1.6","action":"remoteStartTransaction","station":"7300881000000004","sentAt":1793733098074}
+{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000033","sentAt":1793733100354}
+{"ev":"cmd","version":"1.6","action":"remoteStartTransaction","station":"7300881000000005","sentAt":1793733100612}
+{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000034","sentAt":1793733102893}
+{"ev":"cmd","version":"1.6","action":"remoteStartTransaction","station":"7300881000000006","sentAt":1793733103141}
+{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000035","sentAt":1793733105420}
+{"ev":"cmd","version":"1.6","action":"remoteStartTransaction","station":"7300881000000007","sentAt":1793733105692}
+{"ev":"cmd","version":"2.0.1","action":"requestStopTransaction","station":"7300881000000031","sentAt":1793733120056}
+{"ev":"cmd","version":"2.0.1","action":"requestStopTransaction","station":"7300881000000032","sentAt":1793733126802}
+{"ev":"cmd","version":"2.0.1","action":"requestStopTransaction","station":"7300881000000033","sentAt":1793733133188}
+{"ev":"cmd","version":"2.0.1","action":"requestStopTransaction","station":"7300881000000034","sentAt":1793733139174}
+{"ev":"cmd","version":"2.0.1","action":"requestStopTransaction","station":"7300881000000035","sentAt":1793733140690}
+{"ev":"note","at":1793733147358,"msg":"commands sent (stop targets: 5)"}
+{"ev":"note","at":1793733147365,"msg":"restart gateway"}
+{"ev":"note","at":1793733163465,"msg":"reconnect: all 500 back after 11s"}
+{"ev":"note","at":1793733223470,"msg":"end"}

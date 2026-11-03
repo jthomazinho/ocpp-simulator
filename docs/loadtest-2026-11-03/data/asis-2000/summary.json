@@ -1,0 +1,193 @@
+{
+ "tier": "asis-2000",
+ "notes": [
+  "start N=2000 ramp=50 tx=0.2 mix16=0.3",
+  "ramp done connected=2000 booted=117 after 601s",
+  "steady 120s done",
+  "commands sent (stop targets: 9)",
+  "restart gateway",
+  "reconnect: all 2000 back after 14s",
+  "end"
+ ],
+ "generator": {
+  "connected_end": 2000,
+  "boot_accepted": 328,
+  "boot_p95_ms": 30001,
+  "disconnects_total": 2099,
+  "disconnects_before_restart": 99,
+  "steady_call_p50_ms": 25,
+  "steady_call_p95_ms": 50,
+  "ramp_call_p95_ms_max": 29042,
+  "in_tx_steady": 21,
+  "errors": {
+   "ws:Opening handshake has timed out": 3982,
+   "timeout:BootNotification": 3771,
+   "boot:undefined": 3771,
+   "timeout:StartTransaction": 8,
+   "tx16:no-transactionId": 8,
+   "timeout:StatusNotification": 16,
+   "timeout:TransactionEvent": 10,
+   "timeout:MeterValues": 4,
+   "ws:socket hang up": 4270,
+   "callerror:TransactionEvent:closed": 3,
+   "callerror:MeterValues:closed": 8,
+   "ws:connect ECONNREFUSED 127.0.0.1:18081": 40,
+   "ws:connect ECONNREFUSED 127.0.0.1:18092": 20,
+   "ws:read ECONNRESET": 1471,
+   "tx16:idTag:ConcurrentTx": 2
+  },
+  "gen_rss_mb": 121
+ },
+ "commands": [
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 151,
+   "effect_ms": 203
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 150,
+   "effect_ms": 191
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 165,
+   "effect_ms": 206
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 158,
+   "effect_ms": 190
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 145,
+   "effect_ms": 192
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 147,
+   "effect_ms": 184
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 145,
+   "effect_ms": 177
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 149,
+   "effect_ms": 181
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 147,
+   "effect_ms": 179
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 148,
+   "effect_ms": 179
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 141,
+   "effect_ms": 172
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 137,
+   "effect_ms": 159
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 143,
+   "effect_ms": 163
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 140,
+   "effect_ms": 159
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 137,
+   "effect_ms": 156
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 147,
+   "effect_ms": 173
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 165,
+   "effect_ms": 195
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 140,
+   "effect_ms": 180
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 142,
+   "effect_ms": 168
+  }
+ ],
+ "resources": {
+  "citrineos": {
+   "cpu_pct_steady_avg": 7.1,
+   "cpu_pct_peak": 137.09,
+   "mem_mb_steady_max": 279
+  },
+  "postgres": {
+   "cpu_pct_steady_avg": 1.4,
+   "cpu_pct_peak": 89.06,
+   "mem_mb_steady_max": 143
+  },
+  "amqp-broker": {
+   "cpu_pct_steady_avg": 8.9,
+   "cpu_pct_peak": 184.42,
+   "mem_mb_steady_max": 449
+  },
+  "csms-backend": {
+   "cpu_pct_steady_avg": 3.6,
+   "cpu_pct_peak": 69.99,
+   "mem_mb_steady_max": 116
+  }
+ },
+ "stack_mem_mb_peak": 1424,
+ "postgres": {
+  "connections_peak": 24,
+  "steady_qps_avg": 108.5,
+  "steady_mean_stmt_ms": 0.053,
+  "peak_mean_stmt_ms": 0.41,
+  "worst_statement_mean_ms": 12.55
+ },
+ "rabbitmq": {
+  "steady_publish_per_s": 7.0,
+  "steady_deliver_per_s": 6.0,
+  "queued_peak": 81,
+  "publish_per_s_peak": 109.8
+ }
+}

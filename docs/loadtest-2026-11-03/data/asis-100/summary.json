@@ -1,0 +1,193 @@
+{
+ "tier": "asis-100",
+ "notes": [
+  "start N=100 ramp=50 tx=0.2 mix16=0.3",
+  "ramp done connected=84 booted=127 after 70s",
+  "steady 120s done",
+  "commands sent (stop targets: 9)",
+  "restart gateway",
+  "reconnect: all 100 back after 37s",
+  "end"
+ ],
+ "generator": {
+  "connected_end": 100,
+  "boot_accepted": 250,
+  "boot_p95_ms": 30000,
+  "disconnects_total": 185,
+  "disconnects_before_restart": 85,
+  "steady_call_p50_ms": 8.5,
+  "steady_call_p95_ms": 24.0,
+  "ramp_call_p95_ms_max": 3274,
+  "in_tx_steady": 10,
+  "errors": {
+   "ws:Opening handshake has timed out": 45,
+   "timeout:StartTransaction": 6,
+   "tx16:no-transactionId": 6,
+   "timeout:TransactionEvent": 3,
+   "timeout:StatusNotification": 29,
+   "timeout:BootNotification": 35,
+   "boot:undefined": 35,
+   "timeout:MeterValues": 11,
+   "ws:socket hang up": 304,
+   "callerror:MeterValues:closed": 9,
+   "callerror:TransactionEvent:closed": 1,
+   "callerror:Heartbeat:closed": 1,
+   "ws:read ECONNRESET": 113,
+   "ws:connect ECONNREFUSED 127.0.0.1:18092": 6,
+   "ws:connect ECONNREFUSED 127.0.0.1:18081": 15
+  },
+  "gen_rss_mb": 67
+ },
+ "commands": [
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 171,
+   "effect_ms": 206
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 200,
+   "effect_ms": 236
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 198,
+   "effect_ms": 226
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 193,
+   "effect_ms": 218
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 189,
+   "effect_ms": 230
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 199,
+   "effect_ms": 228
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 200,
+   "effect_ms": 231
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 190,
+   "effect_ms": 210
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 161,
+   "effect_ms": 185
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 215,
+   "effect_ms": 235
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 247,
+   "effect_ms": 278
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 512,
+   "effect_ms": 549
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 556,
+   "effect_ms": 594
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 893,
+   "effect_ms": 935
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 1187,
+   "effect_ms": 1257
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 1990,
+   "effect_ms": 2117
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 1146,
+   "effect_ms": 1221
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 900,
+   "effect_ms": 974
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 1185,
+   "effect_ms": 1294
+  }
+ ],
+ "resources": {
+  "citrineos": {
+   "cpu_pct_steady_avg": 5.1,
+   "cpu_pct_peak": 127.09,
+   "mem_mb_steady_max": 197
+  },
+  "postgres": {
+   "cpu_pct_steady_avg": 2.1,
+   "cpu_pct_peak": 45.8,
+   "mem_mb_steady_max": 128
+  },
+  "amqp-broker": {
+   "cpu_pct_steady_avg": 2.1,
+   "cpu_pct_peak": 26.47,
+   "mem_mb_steady_max": 170
+  },
+  "csms-backend": {
+   "cpu_pct_steady_avg": 9.9,
+   "cpu_pct_peak": 54.58,
+   "mem_mb_steady_max": 114
+  }
+ },
+ "stack_mem_mb_peak": 827,
+ "postgres": {
+  "connections_peak": 23,
+  "steady_qps_avg": 138.2,
+  "steady_mean_stmt_ms": 0.044,
+  "peak_mean_stmt_ms": 0.265,
+  "worst_statement_mean_ms": 12.3
+ },
+ "rabbitmq": {
+  "steady_publish_per_s": 7.8,
+  "steady_deliver_per_s": 7.4,
+  "queued_peak": 65,
+  "publish_per_s_peak": 77.0
+ }
+}

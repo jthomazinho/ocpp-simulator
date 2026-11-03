@@ -1,18 +1,31 @@
 #!/usr/bin/env node
 /**
- * OCPP 2.0.1 load generator for the gateway load test (card 69c5b5e7).
+ * OCPP load generator for the gateway load test (card 69c5b5e7).
  *
- * Opens N station websockets (security profile 1, Basic Auth), each one:
+ * Opens N station websockets (security profile 1, Basic Auth), a mix of
+ * OCPP 2.0.1 and 1.6 stations (--mix16 = fraction on 1.6). Each station:
  * BootNotification -> StatusNotification -> Heartbeat every interval ->
- * MeterValues every 60 s; a fraction runs a transaction (TransactionEvent
- * Started + Updated every 60 s). Inbound CSMS calls are answered Accepted
- * and their arrival is logged, so a RemoteStart/Reset latency can be read.
- * A dropped socket reconnects with jittered backoff; the time until every
- * station is back is reported, which is how the "gateway restart" scenario
- * is measured.
+ * MeterValues every --meter seconds. A fraction (--tx) starts a local
+ * transaction at boot (2.0.1 TransactionEvent Started / 1.6 StartTransaction)
+ * and sends periodic meter values inside it.
  *
- * usage: node bench/loadgen.js --url ws://host:8081 --prefix 7300881 --count 100
- *        [--start 1] [--ramp 20] [--tx 0.2] [--meter 60] [--out stats.jsonl]
+ * Inbound commands change the station state like a real charger:
+ *   2.0.1 RequestStartTransaction -> Accepted + TransactionEvent Started
+ *         (triggerReason RemoteStart, remoteStartId and idToken echoed);
+ *         RequestStopTransaction -> Accepted + TransactionEvent Ended when
+ *         the transactionId is the running one, Rejected otherwise.
+ *   1.6   RemoteStartTransaction -> Accepted + StartTransaction (idTag
+ *         echoed); RemoteStopTransaction -> Accepted + StopTransaction for
+ *         the running transactionId, Rejected otherwise.
+ * Every inbound call and every transaction start/stop is logged with a
+ * timestamp, so the command -> effect latency can be read.
+ *
+ * A dropped socket reconnects with jittered backoff (1..30 s) honouring
+ * Retry-After; the time until every station is back is reported.
+ *
+ * usage: node bench/loadgen.js --url ws://host:8081 [--url16 ws://host:8092]
+ *        [--mix16 0.3] --prefix 7300881 --count 100 [--start 1] [--ramp 20]
+ *        [--tx 0.2] [--meter 60] [--out stats.jsonl]
  * env:   LT_PW = station Basic Auth password
  */
 const WebSocket = require('ws');
@@ -23,7 +36,9 @@ const arg = (name, dflt) => {
   const i = process.argv.indexOf(`--${name}`);
   return i > 0 ? process.argv[i + 1] : dflt;
 };
-const URL = arg('url', 'ws://192.168.240.26:8081');
+const URL201 = arg('url', 'ws://192.168.240.26:8081');
+const URL16 = arg('url16', 'ws://192.168.240.26:8092');
+const MIX16 = Number(arg('mix16', '0'));
 const PREFIX = arg('prefix', '7300881');
 const COUNT = Number(arg('count', '10'));
 const START = Number(arg('start', '1'));
@@ -48,6 +63,8 @@ const stats = {
   disconnects: 0,
   lastAllUpAt: null,
   lastDropAt: null,
+  txStarted: 0,
+  txStopped: 0,
 };
 const bump = (bag, key) => (bag[key] = (bag[key] || 0) + 1);
 const pct = (arr, p) => {
@@ -55,22 +72,29 @@ const pct = (arr, p) => {
   const s = [...arr].sort((a, b) => a - b);
   return s[Math.min(s.length - 1, Math.floor((p / 100) * s.length))];
 };
+const now = () => new Date().toISOString();
 
 class Station {
-  constructor(id, inTx) {
+  constructor(id, protocol, txAtBoot) {
     this.id = id;
-    this.inTx = inTx;
+    this.protocol = protocol; // 'ocpp2.0.1' | 'ocpp1.6'
+    this.txAtBoot = txAtBoot;
+    this.tx = null; // { id, idToken, remoteStartId? }
     this.pending = new Map();
     this.timers = [];
     this.attempt = 0;
     this.energy = Math.floor(Math.random() * 100000);
     this.seq = 0;
-    this.txId = crypto.randomUUID();
+  }
+
+  get is16() {
+    return this.protocol === 'ocpp1.6';
   }
 
   connect() {
     const auth = Buffer.from(`${this.id}:${PW}`).toString('base64');
-    this.ws = new WebSocket(`${URL}/${this.id}`, ['ocpp2.0.1'], {
+    const base = this.is16 ? URL16 : URL201;
+    this.ws = new WebSocket(`${base}/${this.id}`, [this.protocol], {
       headers: { Authorization: `Basic ${auth}` },
       handshakeTimeout: 15000,
     });
@@ -99,23 +123,52 @@ class Station {
     }
     if (stats.connected === COUNT) stats.lastAllUpAt = Date.now();
     const t0 = Date.now();
-    this.call('BootNotification', {
-      chargingStation: { model: 'AC Wallbox 22', vendorName: 'Everest', serialNumber: this.id, firmwareVersion: '1.4.2' },
-      reason: 'PowerUp',
-    }).then((res) => {
+    const boot = this.is16
+      ? {
+          chargePointVendor: 'Everest',
+          chargePointModel: 'AC Wallbox 22',
+          chargePointSerialNumber: this.id,
+          firmwareVersion: '1.4.2',
+        }
+      : {
+          chargingStation: {
+            model: 'AC Wallbox 22',
+            vendorName: 'Everest',
+            serialNumber: this.id,
+            firmwareVersion: '1.4.2',
+          },
+          reason: 'PowerUp',
+        };
+    this.call('BootNotification', boot).then((res) => {
       stats.bootMs.push(Date.now() - t0);
       if (res?.status !== 'Accepted') return bump(stats.errors, `boot:${res?.status}`);
       stats.bootAccepted += 1;
       const interval = Math.max(30, Number(res.interval) || 60);
-      this.call('StatusNotification', {
-        timestamp: new Date().toISOString(),
-        connectorStatus: this.inTx ? 'Occupied' : 'Available',
-        evseId: 1,
-        connectorId: 1,
-      });
+      this.status(this.tx || this.txAtBoot ? 'Occupied' : 'Available');
       this.every(interval * 1000, () => this.call('Heartbeat', {}));
-      if (this.inTx) this.startTx();
+      if (this.txAtBoot && !this.tx) {
+        this.txAtBoot = false;
+        this.startTx({ idToken: `LT${this.id.slice(-8)}`, trigger: 'Authorized' });
+      }
       this.every(METER_S * 1000, () => this.meter());
+    });
+  }
+
+  status(s) {
+    if (this.is16) {
+      const map = { Available: 'Available', Occupied: 'Charging' };
+      return this.call('StatusNotification', {
+        connectorId: 1,
+        errorCode: 'NoError',
+        status: map[s],
+        timestamp: now(),
+      });
+    }
+    return this.call('StatusNotification', {
+      timestamp: now(),
+      connectorStatus: s,
+      evseId: 1,
+      connectorId: 1,
     });
   }
 
@@ -128,38 +181,97 @@ class Station {
     this.timers.push(first);
   }
 
-  startTx() {
-    this.call('TransactionEvent', {
-      eventType: 'Started',
-      timestamp: new Date().toISOString(),
-      triggerReason: 'Authorized',
-      seqNo: this.seq++,
-      transactionInfo: { transactionId: this.txId, chargingState: 'Charging' },
-      evse: { id: 1, connectorId: 1 },
-      idToken: { idToken: `LT${this.id.slice(-8)}`, type: 'ISO14443' },
-    });
+  async startTx({ idToken, trigger, remoteStartId }) {
+    if (this.is16) {
+      this.tx = { id: null, idToken };
+      const res = await this.call('StartTransaction', {
+        connectorId: 1,
+        idTag: idToken,
+        meterStart: this.energy,
+        timestamp: now(),
+      });
+      if (!res || res.transactionId === undefined) {
+        this.tx = null;
+        return bump(stats.errors, 'tx16:no-transactionId');
+      }
+      this.tx.id = res.transactionId;
+      if (res.idTagInfo?.status !== 'Accepted') bump(stats.errors, `tx16:idTag:${res.idTagInfo?.status}`);
+    } else {
+      this.tx = { id: crypto.randomUUID(), idToken };
+      const res = await this.call('TransactionEvent', {
+        eventType: 'Started',
+        timestamp: now(),
+        triggerReason: trigger,
+        seqNo: this.seq++,
+        transactionInfo: { transactionId: this.tx.id, chargingState: 'Charging', ...(remoteStartId !== undefined ? { remoteStartId } : {}) },
+        evse: { id: 1, connectorId: 1 },
+        idToken: { idToken, type: trigger === 'RemoteStart' ? 'Central' : 'ISO14443' },
+      });
+      if (res?.idTokenInfo && res.idTokenInfo.status !== 'Accepted') {
+        bump(stats.errors, `tx201:idToken:${res.idTokenInfo.status}`);
+      }
+    }
+    stats.txStarted += 1;
+    log({ ev: 'tx', station: this.id, protocol: this.protocol, kind: 'started', trigger, txId: this.tx?.id, at: Date.now() });
+    this.status('Occupied');
+  }
+
+  async stopTx(reason) {
+    const tx = this.tx;
+    if (!tx) return;
+    this.tx = null;
+    if (this.is16) {
+      await this.call('StopTransaction', {
+        transactionId: tx.id,
+        meterStop: this.energy,
+        timestamp: now(),
+        reason,
+      });
+    } else {
+      await this.call('TransactionEvent', {
+        eventType: 'Ended',
+        timestamp: now(),
+        triggerReason: reason === 'Remote' ? 'RemoteStop' : 'StopAuthorized',
+        seqNo: this.seq++,
+        transactionInfo: { transactionId: tx.id, chargingState: 'Idle', stoppedReason: reason },
+        evse: { id: 1, connectorId: 1 },
+      });
+    }
+    stats.txStopped += 1;
+    log({ ev: 'tx', station: this.id, protocol: this.protocol, kind: 'stopped', reason, txId: tx.id, at: Date.now() });
+    this.status('Available');
   }
 
   meter() {
     this.energy += 180 + Math.floor(Math.random() * 40);
+    if (this.is16) {
+      const sampledValue = [
+        { value: String(this.energy), measurand: 'Energy.Active.Import.Register', unit: 'Wh' },
+        { value: String(this.tx ? 11000 : 0), measurand: 'Power.Active.Import', unit: 'W' },
+      ];
+      return this.call('MeterValues', {
+        connectorId: 1,
+        ...(this.tx?.id !== undefined && this.tx?.id !== null ? { transactionId: this.tx.id } : {}),
+        meterValue: [{ timestamp: now(), sampledValue }],
+      });
+    }
     const sampledValue = [
       { value: this.energy, measurand: 'Energy.Active.Import.Register', unitOfMeasure: { unit: 'Wh' } },
-      { value: this.inTx ? 11000 : 0, measurand: 'Power.Active.Import', unitOfMeasure: { unit: 'W' } },
+      { value: this.tx ? 11000 : 0, measurand: 'Power.Active.Import', unitOfMeasure: { unit: 'W' } },
     ];
-    const meterValue = [{ timestamp: new Date().toISOString(), sampledValue }];
-    if (this.inTx) {
-      this.call('TransactionEvent', {
+    const meterValue = [{ timestamp: now(), sampledValue }];
+    if (this.tx) {
+      return this.call('TransactionEvent', {
         eventType: 'Updated',
-        timestamp: new Date().toISOString(),
+        timestamp: now(),
         triggerReason: 'MeterValuePeriodic',
         seqNo: this.seq++,
-        transactionInfo: { transactionId: this.txId, chargingState: 'Charging' },
+        transactionInfo: { transactionId: this.tx.id, chargingState: 'Charging' },
         evse: { id: 1, connectorId: 1 },
         meterValue,
       });
-    } else {
-      this.call('MeterValues', { evseId: 1, meterValue });
     }
+    return this.call('MeterValues', { evseId: 1, meterValue });
   }
 
   call(action, payload) {
@@ -182,6 +294,10 @@ class Station {
     });
   }
 
+  reply(id, payload) {
+    if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify([3, id, payload]));
+  }
+
   onMessage(raw) {
     let msg;
     try {
@@ -196,16 +312,37 @@ class Station {
       if (cb) cb(type === 3 ? msg[2] : null, type === 4 ? msg[2] : null);
       return;
     }
-    if (type === 2) {
-      const action = msg[2];
-      bump(stats.inbound, action);
-      log({ ev: 'inbound', station: this.id, action, at: Date.now() });
-      const answers = {
-        GetVariables: { getVariableResult: [] },
-        SetVariables: { setVariableResult: [] },
-        GetBaseReport: { status: 'Accepted' },
-      };
-      this.ws.send(JSON.stringify([3, id, answers[action] || { status: 'Accepted' }]));
+    if (type !== 2) return;
+    const action = msg[2];
+    const payload = msg[3] || {};
+    bump(stats.inbound, action);
+    log({ ev: 'inbound', station: this.id, protocol: this.protocol, action, at: Date.now() });
+
+    switch (action) {
+      case 'RequestStartTransaction': // 2.0.1
+      case 'RemoteStartTransaction': {
+        // 1.6
+        if (this.tx) return this.reply(id, { status: 'Rejected' });
+        this.reply(id, { status: 'Accepted' });
+        const idToken = this.is16 ? payload.idTag : payload.idToken?.idToken;
+        this.startTx({ idToken, trigger: 'RemoteStart', remoteStartId: payload.remoteStartId });
+        return;
+      }
+      case 'RequestStopTransaction':
+      case 'RemoteStopTransaction': {
+        const matches = this.tx && String(this.tx.id) === String(payload.transactionId);
+        this.reply(id, { status: matches ? 'Accepted' : 'Rejected' });
+        if (matches) this.stopTx('Remote');
+        return;
+      }
+      case 'GetVariables':
+        return this.reply(id, { getVariableResult: [] });
+      case 'SetVariables':
+        return this.reply(id, { setVariableResult: [] });
+      case 'GetConfiguration':
+        return this.reply(id, { configurationKey: [], unknownKey: [] });
+      default:
+        return this.reply(id, { status: 'Accepted' });
     }
   }
 
@@ -236,10 +373,14 @@ const out = fs.createWriteStream(OUT, { flags: 'a' });
 const log = (obj) => out.write(JSON.stringify(obj) + '\n');
 let stopping = false;
 
+// Deterministic protocol split so a station id always uses the same port
+// (the gateway registers a station under one protocol).
 const stations = [];
 for (let i = 0; i < COUNT; i++) {
-  const id = PREFIX + String(START + i).padStart(16 - PREFIX.length, '0');
-  stations.push(new Station(id, Math.random() < TX_FRACTION));
+  const n = START + i;
+  const id = PREFIX + String(n).padStart(16 - PREFIX.length, '0');
+  const protocol = (n % 100) < MIX16 * 100 ? 'ocpp1.6' : 'ocpp2.0.1';
+  stations.push(new Station(id, protocol, Math.random() < TX_FRACTION));
 }
 let next = 0;
 const rampTimer = setInterval(() => {
@@ -253,8 +394,12 @@ setInterval(() => {
     ev: 'stats',
     t: Math.round((Date.now() - started) / 1000),
     connected: stats.connected,
+    connected16: stations.filter((s) => s.up && s.is16).length,
     everConnected: stats.everConnected,
     bootAccepted: stats.bootAccepted,
+    inTx: stations.filter((s) => s.tx).length,
+    txStarted: stats.txStarted,
+    txStopped: stats.txStopped,
     bootP50: pct(stats.bootMs, 50),
     bootP95: pct(stats.bootMs, 95),
     callP50: pct(stats.callMs, 50),
@@ -270,9 +415,20 @@ setInterval(() => {
   };
   log(snap);
   console.log(JSON.stringify(snap));
-  // Keep percentiles about the last window only.
-  stats.callMs = stats.callMs.slice(-20000);
+  // Percentiles over the last 10 s window only.
+  stats.callMs = [];
 }, 10000);
+
+// Lets a test driver ask which stations are in a transaction (and with
+// which id) to aim a RemoteStop: SIGUSR2 dumps them to the stats file.
+process.on('SIGUSR2', () => {
+  log({
+    ev: 'txdump',
+    at: Date.now(),
+    tx: stations.filter((s) => s.tx && s.tx.id !== null).map((s) => ({ station: s.id, protocol: s.protocol, txId: s.tx.id })),
+    idle: stations.filter((s) => s.up && !s.tx).map((s) => ({ station: s.id, protocol: s.protocol })).slice(0, 200),
+  });
+});
 
 process.on('SIGINT', () => {
   stopping = true;

@@ -1,0 +1,17 @@
+{"ev":"note","at":1793726947548,"msg":"start N=100 ramp=50 tx=0.2"}
+{"ev":"note","at":1793726967640,"msg":"ramp done connected=100 booted=100 after 20s"}
+{"ev":"note","at":1793727147645,"msg":"steady 180s done"}
+{"ev":"cmd","action":"requestStartTransaction","station":"7300881000000017","sentAt":1793727147653}
+{"ev":"cmd","action":"requestStopTransaction","station":"7300881000000017","sentAt":1793727151483}
+{"ev":"cmd","action":"requestStartTransaction","station":"7300881000000034","sentAt":1793727155246}
+{"ev":"cmd","action":"requestStopTransaction","station":"7300881000000034","sentAt":1793727159069}
+{"ev":"cmd","action":"requestStartTransaction","station":"7300881000000051","sentAt":1793727162675}
+{"ev":"cmd","action":"requestStopTransaction","station":"7300881000000051","sentAt":1793727166635}
+{"ev":"cmd","action":"requestStartTransaction","station":"7300881000000067","sentAt":1793727170627}
+{"ev":"cmd","action":"requestStopTransaction","station":"7300881000000067","sentAt":1793727174308}
+{"ev":"cmd","action":"requestStartTransaction","station":"7300881000000084","sentAt":1793727177878}
+{"ev":"cmd","action":"requestStopTransaction","station":"7300881000000084","sentAt":1793727181579}
+{"ev":"note","at":1793727185176,"msg":"commands sent"}
+{"ev":"note","at":1793727185188,"msg":"restart gateway"}
+{"ev":"note","at":1793727233063,"msg":"reconnect: all 100 back after 33s (connected=100)"}
+{"ev":"note","at":1793727293083,"msg":"end"}

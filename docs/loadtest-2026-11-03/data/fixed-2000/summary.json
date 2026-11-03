@@ -1,0 +1,190 @@
+{
+ "tier": "fixed-2000",
+ "notes": [
+  "start N=2000 ramp=50 tx=0.2 mix16=0.3",
+  "ramp done connected=2000 booted=1061 after 602s",
+  "steady 120s done",
+  "commands sent (stop targets: 9)",
+  "restart gateway",
+  "reconnect: all 2000 back after 124s",
+  "end"
+ ],
+ "generator": {
+  "connected_end": 2000,
+  "boot_accepted": 2110,
+  "boot_p95_ms": 30001,
+  "disconnects_total": 2000,
+  "disconnects_before_restart": 0,
+  "steady_call_p50_ms": 41,
+  "steady_call_p95_ms": 94,
+  "ramp_call_p95_ms_max": 28822,
+  "in_tx_steady": 216,
+  "errors": {
+   "http:503": 10035,
+   "ws:WebSocket was closed before the connection was established": 10035,
+   "tx16:idTag:ConcurrentTx": 14,
+   "callerror:TransactionEvent:InternalError": 14,
+   "timeout:BootNotification": 1890,
+   "boot:undefined": 1890,
+   "callerror:Heartbeat:closed": 1,
+   "callerror:MeterValues:closed": 3,
+   "ws:connect ECONNREFUSED 127.0.0.1:18092": 3,
+   "ws:connect ECONNREFUSED 127.0.0.1:18081": 7,
+   "ws:read ECONNRESET": 1027,
+   "ws:socket hang up": 4120
+  },
+  "gen_rss_mb": 121
+ },
+ "commands": [
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 361,
+   "effect_ms": 840
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 378,
+   "effect_ms": 506
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 299,
+   "effect_ms": 375
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 304,
+   "effect_ms": 380
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 303,
+   "effect_ms": 390
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 282,
+   "effect_ms": 344
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 333,
+   "effect_ms": 476
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 359,
+   "effect_ms": 495
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 287,
+   "effect_ms": 359
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 278,
+   "effect_ms": 341
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 396,
+   "effect_ms": 549
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 257,
+   "effect_ms": 301
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 252,
+   "effect_ms": 297
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 254,
+   "effect_ms": 312
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStopTransaction",
+   "arrive_ms": 247,
+   "effect_ms": 335
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 274,
+   "effect_ms": 381
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 262,
+   "effect_ms": 319
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 173,
+   "effect_ms": 231
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 193,
+   "effect_ms": 241
+  }
+ ],
+ "resources": {
+  "citrineos": {
+   "cpu_pct_steady_avg": 41.1,
+   "cpu_pct_peak": 110.7,
+   "mem_mb_steady_max": 409
+  },
+  "postgres": {
+   "cpu_pct_steady_avg": 25.3,
+   "cpu_pct_peak": 77.93,
+   "mem_mb_steady_max": 236
+  },
+  "amqp-broker": {
+   "cpu_pct_steady_avg": 98.9,
+   "cpu_pct_peak": 165.87,
+   "mem_mb_steady_max": 486
+  },
+  "csms-backend": {
+   "cpu_pct_steady_avg": 10.0,
+   "cpu_pct_peak": 74.93,
+   "mem_mb_steady_max": 120
+  }
+ },
+ "stack_mem_mb_peak": 1269,
+ "postgres": {
+  "connections_peak": 36,
+  "steady_qps_avg": 614.9,
+  "steady_mean_stmt_ms": 0.139,
+  "peak_mean_stmt_ms": 0.235,
+  "worst_statement_mean_ms": 11.95
+ },
+ "rabbitmq": {
+  "steady_publish_per_s": 74.7,
+  "steady_deliver_per_s": 78.1,
+  "queued_peak": 4,
+  "publish_per_s_peak": 123.2
+ }
+}
