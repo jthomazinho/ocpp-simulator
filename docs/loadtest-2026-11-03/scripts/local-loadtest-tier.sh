@@ -22,11 +22,12 @@ note() { echo "{\"ev\":\"note\",\"at\":$(now_ms),\"msg\":\"$*\"}" >> "$OUT/event
 "$ROOT/scripts/local-loadtest-metrics.sh" "$OUT/metrics.jsonl" & SAMPLER=$!
 cd "$ROOT/ocpp-simulator"
 taskset -c 8-15 node bench/loadgen.js --url ws://127.0.0.1:18081 --url16 ws://127.0.0.1:18092 \
-  --mix16 "$MIX16" --count "$N" --ramp "$RAMP" --tx "$TX" --out "$OUT/loadgen.jsonl" > /dev/null 2>&1 & GEN=$!
+  --mix16 "$MIX16" --count "$N" --ramp "$RAMP" --tx "$TX" --out "$OUT/loadgen.jsonl" > /dev/null 2> "$OUT/loadgen.stderr" & GEN=$!
 T0=$(now_ms); note "start N=$N ramp=$RAMP tx=$TX mix16=$MIX16"
 
-for _ in $(seq 1 60); do sleep 10; [ "$(field bootAccepted)" -ge "$N" ] && break; done
-note "ramp done connected=$(field connected) booted=$(field bootAccepted) after $(( ($(now_ms)-T0)/1000 ))s"
+for _ in $(seq 1 60); do sleep 10; [ "$(field registered)" -ge "$N" ] && break; done
+# "registered" = distinct stations connected with an Accepted Boot right now.
+note "ramp done connected=$(field connected) registered=$(field registered) after $(( ($(now_ms)-T0)/1000 ))s"
 
 sleep 120; note "steady 120s done"
 
@@ -64,11 +65,11 @@ R=$(now_ms); note "restart gateway"
 $C restart citrineos > /dev/null 2>&1
 for _ in $(seq 1 120); do
   sleep 5
-  UP=$(field lastAllUpAt); [ "$UP" -gt "$R" ] 2>/dev/null && [ "$(field connected)" -ge "$N" ] && break
+  UP=$(field lastAllRegisteredAt); [ "$UP" -gt "$R" ] 2>/dev/null && [ "$(field registered)" -ge "$N" ] && break
 done
-UP=$(field lastAllUpAt)
-if [ "$UP" -gt "$R" ] 2>/dev/null; then note "reconnect: all $N back after $(( (UP - R) / 1000 ))s"
-else note "reconnect: NOT all back after 600s (connected=$(field connected))"; fi
+UP=$(field lastAllRegisteredAt)
+if [ "$UP" -gt "$R" ] 2>/dev/null; then note "reconnect: all $N registered again after $(( (UP - R) / 1000 ))s"
+else note "reconnect: NOT all registered after 600s (connected=$(field connected) registered=$(field registered))"; fi
 
 sleep 60; note "end"
 kill -INT $GEN 2>/dev/null; sleep 3; kill $SAMPLER 2>/dev/null

@@ -2,177 +2,150 @@
  "tier": "fixed-100",
  "notes": [
   "start N=100 ramp=50 tx=0.2 mix16=0.3",
-  "ramp done connected=100 booted=100 after 30s",
+  "ramp done connected=100 registered=100 after 20s",
   "steady 120s done",
-  "commands sent (stop targets: 8)",
+  "commands sent (stop targets: 3)",
   "restart gateway",
-  "reconnect: all 100 back after 8s",
+  "reconnect: all 100 registered again after 9s",
   "end"
  ],
  "generator": {
   "connected_end": 100,
   "boot_accepted": 200,
-  "boot_p95_ms": 3259,
+  "boot_p95_ms": 3960,
   "disconnects_total": 100,
   "disconnects_before_restart": 0,
-  "steady_call_p50_ms": 9,
-  "steady_call_p95_ms": 26,
-  "ramp_call_p95_ms_max": 1596,
-  "in_tx_steady": 14,
+  "steady_call_p50_ms": 12.0,
+  "steady_call_p95_ms": 25.5,
+  "ramp_call_p95_ms_max": 1579,
+  "in_tx_steady": 11,
+  "registered_steady_min": 100,
+  "tx_failed": 5,
   "errors": {
-   "tx16:idTag:ConcurrentTx": 2,
-   "http:503": 20,
-   "ws:WebSocket was closed before the connection was established": 20,
-   "ws:read ECONNRESET": 109,
-   "ws:socket hang up": 25,
-   "timeout:StatusNotification": 15
+   "tx16:idTag:ConcurrentTx": 5,
+   "http:503": 19,
+   "ws:WebSocket was closed before the connection was established": 19,
+   "callerror:Heartbeat:closed": 1,
+   "ws:read ECONNRESET": 103,
+   "ws:socket hang up": 22,
+   "timeout:StatusNotification": 7
   },
-  "gen_rss_mb": 65
+  "gen_rss_mb": 66
  },
  "commands": [
   {
    "version": "2.0.1",
    "action": "requestStartTransaction",
-   "arrive_ms": 155,
-   "effect_ms": 190
-  },
-  {
-   "version": "1.6",
-   "action": "remoteStartTransaction",
-   "arrive_ms": 162,
-   "effect_ms": 189
-  },
-  {
-   "version": "2.0.1",
-   "action": "requestStartTransaction",
    "arrive_ms": 136,
-   "effect_ms": 161
+   "effect_ms": 176
   },
   {
    "version": "1.6",
    "action": "remoteStartTransaction",
-   "arrive_ms": 135,
-   "effect_ms": 177
-  },
-  {
-   "version": "2.0.1",
-   "action": "requestStartTransaction",
-   "arrive_ms": 153,
-   "effect_ms": 180
-  },
-  {
-   "version": "1.6",
-   "action": "remoteStartTransaction",
-   "arrive_ms": 136,
-   "effect_ms": 158
-  },
-  {
-   "version": "2.0.1",
-   "action": "requestStartTransaction",
-   "arrive_ms": 142,
-   "effect_ms": 162
-  },
-  {
-   "version": "1.6",
-   "action": "remoteStartTransaction",
-   "arrive_ms": 150,
+   "arrive_ms": 140,
    "effect_ms": 170
   },
   {
    "version": "2.0.1",
    "action": "requestStartTransaction",
-   "arrive_ms": 154,
-   "effect_ms": 184
+   "arrive_ms": 147,
+   "effect_ms": 171
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 143,
+   "effect_ms": 164
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 162,
+   "effect_ms": 181
+  },
+  {
+   "version": "1.6",
+   "action": "remoteStartTransaction",
+   "arrive_ms": 144,
+   "effect_ms": 163
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 147,
+   "effect_ms": 175
   },
   {
    "version": "1.6",
    "action": "remoteStartTransaction",
    "arrive_ms": 145,
-   "effect_ms": 166
+   "effect_ms": 170
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 136,
+   "effect_ms": 155
   },
   {
    "version": "1.6",
-   "action": "remoteStopTransaction",
-   "arrive_ms": 141,
-   "effect_ms": 147
-  },
-  {
-   "version": "1.6",
-   "action": "remoteStopTransaction",
-   "arrive_ms": 155,
-   "effect_ms": 161
-  },
-  {
-   "version": "1.6",
-   "action": "remoteStopTransaction",
-   "arrive_ms": 142,
-   "effect_ms": 148
-  },
-  {
-   "version": "1.6",
-   "action": "remoteStopTransaction",
-   "arrive_ms": 147,
-   "effect_ms": 152
+   "action": "remoteStartTransaction",
+   "arrive_ms": 140,
+   "effect_ms": 163
   },
   {
    "version": "2.0.1",
    "action": "requestStopTransaction",
-   "arrive_ms": 151,
-   "effect_ms": 174
-  },
-  {
-   "version": "2.0.1",
-   "action": "requestStopTransaction",
-   "arrive_ms": 173,
-   "effect_ms": 194
+   "arrive_ms": 128,
+   "effect_ms": 143
   },
   {
    "version": "2.0.1",
    "action": "requestStopTransaction",
    "arrive_ms": 136,
-   "effect_ms": 152
+   "effect_ms": 150
   },
   {
    "version": "2.0.1",
    "action": "requestStopTransaction",
-   "arrive_ms": 154,
-   "effect_ms": 171
+   "arrive_ms": 145,
+   "effect_ms": 164
   }
  ],
  "resources": {
   "citrineos": {
-   "cpu_pct_steady_avg": 5.7,
-   "cpu_pct_peak": 110.28,
-   "mem_mb_steady_max": 199
+   "cpu_pct_steady_avg": 5.0,
+   "cpu_pct_peak": 112.64,
+   "mem_mb_steady_max": 200
   },
   "postgres": {
-   "cpu_pct_steady_avg": 1.6,
-   "cpu_pct_peak": 53.89,
-   "mem_mb_steady_max": 159
+   "cpu_pct_steady_avg": 3.7,
+   "cpu_pct_peak": 29.82,
+   "mem_mb_steady_max": 186
   },
   "amqp-broker": {
-   "cpu_pct_steady_avg": 2.2,
-   "cpu_pct_peak": 14.45,
-   "mem_mb_steady_max": 269
+   "cpu_pct_steady_avg": 2.1,
+   "cpu_pct_peak": 16.08,
+   "mem_mb_steady_max": 257
   },
   "csms-backend": {
-   "cpu_pct_steady_avg": 15.2,
-   "cpu_pct_peak": 56.93,
-   "mem_mb_steady_max": 116
+   "cpu_pct_steady_avg": 6.0,
+   "cpu_pct_peak": 39.82,
+   "mem_mb_steady_max": 110
   }
  },
- "stack_mem_mb_peak": 937,
+ "stack_mem_mb_peak": 901,
  "postgres": {
-  "connections_peak": 31,
-  "steady_qps_avg": 135.9,
-  "steady_mean_stmt_ms": 0.057,
-  "peak_mean_stmt_ms": 0.095,
-  "worst_statement_mean_ms": 12.53
+  "connections_peak": 33,
+  "steady_qps_avg": 145.5,
+  "steady_mean_stmt_ms": 0.063,
+  "peak_mean_stmt_ms": 0.159,
+  "worst_statement_mean_ms": 18.05
  },
  "rabbitmq": {
-  "steady_publish_per_s": 7.2,
-  "steady_deliver_per_s": 7.5,
+  "steady_publish_per_s": 8.3,
+  "steady_deliver_per_s": 7.6,
   "queued_peak": 0,
-  "publish_per_s_peak": 10.0
+  "publish_per_s_peak": 51.8
  }
 }

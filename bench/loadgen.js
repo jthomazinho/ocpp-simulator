@@ -65,7 +65,10 @@ const stats = {
   lastDropAt: null,
   txStarted: 0,
   txStopped: 0,
+  txFailed: 0,
+  lastAllRegisteredAt: null,
 };
+let registered = 0;
 const bump = (bag, key) => (bag[key] = (bag[key] || 0) + 1);
 const pct = (arr, p) => {
   if (!arr.length) return null;
@@ -139,10 +142,28 @@ class Station {
           },
           reason: 'PowerUp',
         };
+    this.boot(boot, t0);
+  }
+
+  // Like firmware: a Boot that is not Accepted (timeout, Pending, Rejected)
+  // is sent again after the interval the CSMS asked for (or 30 s), so a
+  // connected station always ends up registered or keeps trying.
+  boot(boot, t0) {
     this.call('BootNotification', boot).then((res) => {
+      if (!this.up) return;
+      if (res?.status !== 'Accepted') {
+        bump(stats.errors, `boot:${res?.status ?? 'timeout'}`);
+        const wait = Math.max(10, Number(res?.interval) || 30) * 1000 * (0.5 + Math.random());
+        this.timers.push(setTimeout(() => this.boot(boot, Date.now()), wait));
+        return;
+      }
       stats.bootMs.push(Date.now() - t0);
-      if (res?.status !== 'Accepted') return bump(stats.errors, `boot:${res?.status}`);
       stats.bootAccepted += 1;
+      if (!this.registered) {
+        this.registered = true;
+        registered += 1;
+        if (registered === COUNT) stats.lastAllRegisteredAt = Date.now();
+      }
       const interval = Math.max(30, Number(res.interval) || 60);
       this.status(this.tx || this.txAtBoot ? 'Occupied' : 'Available');
       this.every(interval * 1000, () => this.call('Heartbeat', {}));
@@ -190,12 +211,16 @@ class Station {
         meterStart: this.energy,
         timestamp: now(),
       });
-      if (!res || res.transactionId === undefined) {
+      if (!res || res.transactionId === undefined || res.idTagInfo?.status !== 'Accepted') {
+        // A charger stops a transaction the CSMS did not accept.
+        if (res?.transactionId !== undefined) {
+          this.call('StopTransaction', { transactionId: res.transactionId, meterStop: this.energy, timestamp: now(), reason: 'DeAuthorized' });
+        }
         this.tx = null;
-        return bump(stats.errors, 'tx16:no-transactionId');
+        bump(stats.errors, res ? `tx16:idTag:${res.idTagInfo?.status}` : 'tx16:no-response');
+        return this.txFailed('start', trigger);
       }
       this.tx.id = res.transactionId;
-      if (res.idTagInfo?.status !== 'Accepted') bump(stats.errors, `tx16:idTag:${res.idTagInfo?.status}`);
     } else {
       this.tx = { id: crypto.randomUUID(), idToken };
       const res = await this.call('TransactionEvent', {
@@ -207,8 +232,19 @@ class Station {
         evse: { id: 1, connectorId: 1 },
         idToken: { idToken, type: trigger === 'RemoteStart' ? 'Central' : 'ISO14443' },
       });
-      if (res?.idTokenInfo && res.idTokenInfo.status !== 'Accepted') {
-        bump(stats.errors, `tx201:idToken:${res.idTokenInfo.status}`);
+      if (!res || (res.idTokenInfo && res.idTokenInfo.status !== 'Accepted')) {
+        // Not accepted (or no answer): the transaction ends right away.
+        const failedId = this.tx.id;
+        this.tx = null;
+        bump(stats.errors, res ? `tx201:idToken:${res.idTokenInfo.status}` : 'tx201:no-response');
+        if (res) {
+          this.call('TransactionEvent', {
+            eventType: 'Ended', timestamp: now(), triggerReason: 'Deauthorized', seqNo: this.seq++,
+            transactionInfo: { transactionId: failedId, chargingState: 'Idle', stoppedReason: 'DeAuthorized' },
+            evse: { id: 1, connectorId: 1 },
+          });
+        }
+        return this.txFailed('start', trigger);
       }
     }
     stats.txStarted += 1;
@@ -216,19 +252,25 @@ class Station {
     this.status('Occupied');
   }
 
+  txFailed(kind, why) {
+    stats.txFailed += 1;
+    log({ ev: 'tx', station: this.id, protocol: this.protocol, kind: `${kind}-failed`, why, at: Date.now() });
+  }
+
   async stopTx(reason) {
     const tx = this.tx;
     if (!tx) return;
     this.tx = null;
+    let res;
     if (this.is16) {
-      await this.call('StopTransaction', {
+      res = await this.call('StopTransaction', {
         transactionId: tx.id,
         meterStop: this.energy,
         timestamp: now(),
         reason,
       });
     } else {
-      await this.call('TransactionEvent', {
+      res = await this.call('TransactionEvent', {
         eventType: 'Ended',
         timestamp: now(),
         triggerReason: reason === 'Remote' ? 'RemoteStop' : 'StopAuthorized',
@@ -237,6 +279,8 @@ class Station {
         evse: { id: 1, connectorId: 1 },
       });
     }
+    // Only an answered stop counts; a timeout or CALLERROR is a failure.
+    if (!res) return this.txFailed('stop', reason);
     stats.txStopped += 1;
     log({ ev: 'tx', station: this.id, protocol: this.protocol, kind: 'stopped', reason, txId: tx.id, at: Date.now() });
     this.status('Available');
@@ -354,6 +398,10 @@ class Station {
     this.timers = [];
     for (const cb of this.pending.values()) cb(null, 'closed');
     this.pending.clear();
+    if (this.registered) {
+      this.registered = false;
+      registered -= 1;
+    }
     if (this.up) {
       stats.connected -= 1;
       stats.disconnects += 1;
@@ -395,6 +443,9 @@ setInterval(() => {
     t: Math.round((Date.now() - started) / 1000),
     connected: stats.connected,
     connected16: stations.filter((s) => s.up && s.is16).length,
+    registered,
+    lastAllRegisteredAt: stats.lastAllRegisteredAt,
+    txFailed: stats.txFailed,
     everConnected: stats.everConnected,
     bootAccepted: stats.bootAccepted,
     inTx: stations.filter((s) => s.tx).length,
@@ -435,3 +486,12 @@ process.on('SIGINT', () => {
   for (const s of stations) s.ws?.close();
   setTimeout(() => process.exit(0), 1500);
 });
+
+// A generator bug must not end the run silently: log it in the stats file
+// (and count it) and keep the other stations going.
+for (const evt of ['unhandledRejection', 'uncaughtException']) {
+  process.on(evt, (err) => {
+    bump(stats.errors, `generator:${evt}`);
+    log({ ev: 'generator-error', kind: evt, message: String(err?.stack || err).slice(0, 2000), at: Date.now() });
+  });
+}

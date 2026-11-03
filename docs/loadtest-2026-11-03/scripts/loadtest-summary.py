@@ -62,6 +62,8 @@ def summarise(d: Path):
             "steady_call_p95_ms": round(statistics.median([r["callP95"] for r in steady if r["callP95"] is not None]), 1) if steady else None,
             "ramp_call_p95_ms_max": max((r["callP95"] or 0 for r in gen if t_ramp and rel(r) <= t_ramp / 1000 + 10), default=None),
             "in_tx_steady": steady[-1]["inTx"] if steady else None,
+            "registered_steady_min": min((r.get("registered", 0) for r in steady), default=None),
+            "tx_failed": last.get("txFailed"),
             "errors": last["errors"],
             "gen_rss_mb": max(r["rssMb"] for r in gen),
         }
