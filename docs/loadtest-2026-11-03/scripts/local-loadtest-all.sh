@@ -3,7 +3,8 @@
 #   asis  = LAB gateway image release-2026-10-30-tabelab, Sequelize pool default (5), no guard
 #   fixed = gateway main + fix/gateway-ws-protection + fix/gateway-crash-on-pool-timeout,
 #           BOOTSTRAP_CITRINEOS_DATABASE_POOL_MAX=20, CITRINEOS_WS_UPGRADES_PER_SECOND=20 (burst 50)
-# Mixed fleet: 70% OCPP 2.0.1, 30% OCPP 1.6; 20% in transaction at boot; ramp 50/s.
+# Fleet 100% OCPP 2.0.1 (decision of 03/11: Power chargers are 2.0.1 or newer);
+# 20% in transaction at boot; ramp 50/s.
 set -uo pipefail
 S=/home/jthomazinho/data/spotside/csms/scripts
 CF=$HOME/.config/spotside/lt-stack/docker-compose.json
@@ -30,7 +31,7 @@ PY
 for CFG in asis fixed; do
   config $CFG
   for N in 100 500 1000 2000; do
-    $S/local-loadtest-tier.sh "$CFG-$N" "$N" 50 0.2 0.3
+    $S/local-loadtest-tier.sh "$CFG-$N" "$N" 50 0.2 0
     $C restart citrineos > /dev/null 2>&1; sleep 40
   done
 done

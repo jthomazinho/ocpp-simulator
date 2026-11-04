@@ -1,20 +1,17 @@
-{"ev":"note","at":1793739232415,"msg":"start N=100 ramp=50 tx=0.2 mix16=0.3"}
-{"ev":"note","at":1793739252518,"msg":"ramp done connected=100 registered=100 after 20s"}
-{"ev":"note","at":1793739372523,"msg":"steady 120s done"}
-{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000030","sentAt":1793739374580}
-{"ev":"cmd","version":"1.6","action":"remoteStartTransaction","station":"7300881000000001","sentAt":1793739374867}
-{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000031","sentAt":1793739377186}
-{"ev":"cmd","version":"1.6","action":"remoteStartTransaction","station":"7300881000000002","sentAt":1793739377486}
-{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000033","sentAt":1793739379811}
-{"ev":"cmd","version":"1.6","action":"remoteStartTransaction","station":"7300881000000003","sentAt":1793739380189}
-{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000034","sentAt":1793739382571}
-{"ev":"cmd","version":"1.6","action":"remoteStartTransaction","station":"7300881000000004","sentAt":1793739382841}
-{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000035","sentAt":1793739385138}
-{"ev":"cmd","version":"1.6","action":"remoteStartTransaction","station":"7300881000000005","sentAt":1793739385406}
-{"ev":"cmd","version":"2.0.1","action":"requestStopTransaction","station":"7300881000000030","sentAt":1793739399723}
-{"ev":"cmd","version":"2.0.1","action":"requestStopTransaction","station":"7300881000000033","sentAt":1793739401007}
-{"ev":"cmd","version":"2.0.1","action":"requestStopTransaction","station":"7300881000000035","sentAt":1793739402274}
-{"ev":"note","at":1793739408547,"msg":"commands sent (stop targets: 3)"}
-{"ev":"note","at":1793739408562,"msg":"restart gateway"}
-{"ev":"note","at":1793739424659,"msg":"reconnect: all 100 registered again after 13s"}
-{"ev":"note","at":1793739484667,"msg":"end"}
+{"ev":"note","at":1793752019413,"msg":"start N=100 ramp=50 tx=0.2 mix16=0"}
+{"ev":"note","at":1793752109738,"msg":"ramp done connected=100 registered=100 after 90s"}
+{"ev":"note","at":1793752229745,"msg":"steady 120s done"}
+{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000002","sentAt":1793752231818}
+{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000003","sentAt":1793752234046}
+{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000004","sentAt":1793752236273}
+{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000005","sentAt":1793752238505}
+{"ev":"cmd","version":"2.0.1","action":"requestStartTransaction","station":"7300881000000006","sentAt":1793752240732}
+{"ev":"cmd","version":"2.0.1","action":"requestStopTransaction","station":"7300881000000002","sentAt":1793752255015}
+{"ev":"cmd","version":"2.0.1","action":"requestStopTransaction","station":"7300881000000003","sentAt":1793752256223}
+{"ev":"cmd","version":"2.0.1","action":"requestStopTransaction","station":"7300881000000004","sentAt":1793752257442}
+{"ev":"cmd","version":"2.0.1","action":"requestStopTransaction","station":"7300881000000005","sentAt":1793752258655}
+{"ev":"cmd","version":"2.0.1","action":"requestStopTransaction","station":"7300881000000006","sentAt":1793752259873}
+{"ev":"note","at":1793752266124,"msg":"commands sent (stop targets: 5, ocpp1.6: 0)"}
+{"ev":"note","at":1793752266139,"msg":"restart gateway"}
+{"ev":"note","at":1793752282160,"msg":"reconnect: all 100 registered again after 7s"}
+{"ev":"note","at":1793752342167,"msg":"end"}

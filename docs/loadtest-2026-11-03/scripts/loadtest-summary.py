@@ -79,6 +79,13 @@ def summarise(d: Path):
             "effect_ms": effect - c["sentAt"] if effect else None,
         })
     out["commands"] = lat
+    # Coverage per command type: a tier without an effective 1.6 RemoteStop
+    # is flagged instead of passing silently (cross-review 03/11).
+    out["command_coverage"] = {
+        f'{c["version"]} {c["action"]}': sum(1 for x in lat if x["action"] == c["action"] and x["effect_ms"] is not None)
+        for c in lat
+    }
+    out["remote_stop_ocpp16_measured"] = out["command_coverage"].get("1.6 remoteStopTransaction", 0) > 0
 
     st = [m for m in metrics if t_ramp and t_restart and t_ramp / 1000 + 30 <= ts(m["at"]) <= t_restart / 1000]
     res = {}

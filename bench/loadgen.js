@@ -204,7 +204,9 @@ class Station {
 
   async startTx({ idToken, trigger, remoteStartId }) {
     if (this.is16) {
-      this.tx = { id: null, idToken };
+      // Kept locally: a stop can clear this.tx while the answer is pending.
+      const tx = { id: null, idToken };
+      this.tx = tx;
       const res = await this.call('StartTransaction', {
         connectorId: 1,
         idTag: idToken,
@@ -216,26 +218,34 @@ class Station {
         if (res?.transactionId !== undefined) {
           this.call('StopTransaction', { transactionId: res.transactionId, meterStop: this.energy, timestamp: now(), reason: 'DeAuthorized' });
         }
-        this.tx = null;
+        if (this.tx === tx) this.tx = null;
         bump(stats.errors, res ? `tx16:idTag:${res.idTagInfo?.status}` : 'tx16:no-response');
         return this.txFailed('start', trigger);
       }
-      this.tx.id = res.transactionId;
+      tx.id = res.transactionId;
+      if (this.tx !== tx) {
+        // Stopped (or replaced) while StartTransaction was pending: the
+        // transaction did start, so close it with the id the CSMS gave.
+        this.call('StopTransaction', { transactionId: tx.id, meterStop: this.energy, timestamp: now(), reason: 'Local' });
+        bump(stats.errors, 'tx16:stopped-while-starting');
+        return this.txFailed('start', trigger);
+      }
     } else {
-      this.tx = { id: crypto.randomUUID(), idToken };
+      const tx = { id: crypto.randomUUID(), idToken };
+      this.tx = tx;
       const res = await this.call('TransactionEvent', {
         eventType: 'Started',
         timestamp: now(),
         triggerReason: trigger,
         seqNo: this.seq++,
-        transactionInfo: { transactionId: this.tx.id, chargingState: 'Charging', ...(remoteStartId !== undefined ? { remoteStartId } : {}) },
+        transactionInfo: { transactionId: tx.id, chargingState: 'Charging', ...(remoteStartId !== undefined ? { remoteStartId } : {}) },
         evse: { id: 1, connectorId: 1 },
         idToken: { idToken, type: trigger === 'RemoteStart' ? 'Central' : 'ISO14443' },
       });
       if (!res || (res.idTokenInfo && res.idTokenInfo.status !== 'Accepted')) {
         // Not accepted (or no answer): the transaction ends right away.
-        const failedId = this.tx.id;
-        this.tx = null;
+        const failedId = tx.id;
+        if (this.tx === tx) this.tx = null;
         bump(stats.errors, res ? `tx201:idToken:${res.idTokenInfo.status}` : 'tx201:no-response');
         if (res) {
           this.call('TransactionEvent', {
@@ -246,9 +256,14 @@ class Station {
         }
         return this.txFailed('start', trigger);
       }
+      if (this.tx !== tx) {
+        // Stopped while Started was pending: stopTx already sent Ended.
+        bump(stats.errors, 'tx201:stopped-while-starting');
+        return this.txFailed('start', trigger);
+      }
     }
     stats.txStarted += 1;
-    log({ ev: 'tx', station: this.id, protocol: this.protocol, kind: 'started', trigger, txId: this.tx?.id, at: Date.now() });
+    log({ ev: 'tx', station: this.id, protocol: this.protocol, kind: 'started', trigger, txId: this.tx.id, at: Date.now() });
     this.status('Occupied');
   }
 

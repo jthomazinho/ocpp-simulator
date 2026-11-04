@@ -52,14 +52,19 @@ grep '"ev":"txdump"' "$OUT/loadgen.jsonl" | tail -1 | python3 -c "
 import json,sys
 d=json.load(sys.stdin)
 want=set('''${IDLE201[*]:-} ${IDLE16[*]:-}'''.split())
-for x in d['tx']:
-  if x['station'] in want: print(x['protocol'],x['station'],x['txId'])" > /tmp/lt/stop-targets.txt
+picked=[x for x in d['tx'] if x['station'] in want]
+# The CSMS may end a remote-started 1.6 transaction by itself before the
+# script gets to it; then stop 1.6 transactions open since boot, so every
+# tier measures at least one RemoteStopTransaction (cross-review 03/11).
+if not any(x['protocol']=='ocpp1.6' for x in picked):
+  picked+=[x for x in d['tx'] if x['protocol']=='ocpp1.6' and x['station'] not in want][:2]
+for x in picked: print(x['protocol'],x['station'],x['txId'])" > /tmp/lt/stop-targets.txt
 while read -r PROTO ST TXID; do
   if [ "$PROTO" = "ocpp1.6" ]; then api 1.6 evdriver remoteStopTransaction "{transactionId:$TXID}" "$ST";
   else api 2.0.1 evdriver requestStopTransaction "{transactionId:'$TXID'}" "$ST"; fi
   sleep 1
 done < /tmp/lt/stop-targets.txt
-sleep 5; note "commands sent (stop targets: $(wc -l < /tmp/lt/stop-targets.txt))"
+sleep 5; note "commands sent (stop targets: $(wc -l < /tmp/lt/stop-targets.txt), ocpp1.6: $(grep -c "^ocpp1.6" /tmp/lt/stop-targets.txt))"
 
 R=$(now_ms); note "restart gateway"
 $C restart citrineos > /dev/null 2>&1
