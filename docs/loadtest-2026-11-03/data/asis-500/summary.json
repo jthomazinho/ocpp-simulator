@@ -1,0 +1,145 @@
+{
+ "tier": "asis-500",
+ "notes": [
+  "start N=500 ramp=50 tx=0.2 mix16=0",
+  "ramp done connected=500 registered=500 after 411s",
+  "steady 120s done",
+  "commands sent (stop targets: 5, ocpp1.6: 0)",
+  "restart gateway",
+  "reconnect: all 500 registered again after 21s",
+  "end"
+ ],
+ "generator": {
+  "connected_end": 500,
+  "boot_accepted": 2117,
+  "boot_p95_ms": 13611,
+  "disconnects_total": 2300,
+  "disconnects_before_restart": 1800,
+  "steady_call_p50_ms": 13.0,
+  "steady_call_p95_ms": 29.5,
+  "ramp_call_p95_ms_max": 28782,
+  "in_tx_steady": 57,
+  "registered_steady_min": 500,
+  "tx_failed": 40,
+  "errors": {
+   "ws:Opening handshake has timed out": 1678,
+   "timeout:TransactionEvent": 119,
+   "tx201:no-response": 40,
+   "timeout:BootNotification": 683,
+   "boot:timeout": 683,
+   "timeout:MeterValues": 489,
+   "ws:socket hang up": 1435,
+   "callerror:TransactionEvent:closed": 66,
+   "callerror:MeterValues:closed": 486,
+   "callerror:BootNotification:closed": 482,
+   "ws:read ECONNRESET": 1908,
+   "ws:connect ECONNREFUSED 127.0.0.1:18081": 3,
+   "timeout:StatusNotification": 8,
+   "callerror:Heartbeat:closed": 8
+  },
+  "gen_rss_mb": 84
+ },
+ "commands": [
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 138,
+   "effect_ms": 169
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 157,
+   "effect_ms": 181
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 162,
+   "effect_ms": 188
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 136,
+   "effect_ms": 161
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 131,
+   "effect_ms": 154
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 136,
+   "effect_ms": 161
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 149,
+   "effect_ms": 168
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 154,
+   "effect_ms": 183
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 137,
+   "effect_ms": 164
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 133,
+   "effect_ms": 185
+  }
+ ],
+ "command_coverage": {
+  "2.0.1 requestStartTransaction": 5,
+  "2.0.1 requestStopTransaction": 5
+ },
+ "remote_stop_ocpp16_measured": false,
+ "resources": {
+  "citrineos": {
+   "cpu_pct_steady_avg": 16.3,
+   "cpu_pct_peak": 127.7,
+   "mem_mb_steady_max": 432
+  },
+  "postgres": {
+   "cpu_pct_steady_avg": 6.2,
+   "cpu_pct_peak": 51.81,
+   "mem_mb_steady_max": 144
+  },
+  "amqp-broker": {
+   "cpu_pct_steady_avg": 13.9,
+   "cpu_pct_peak": 57.35,
+   "mem_mb_steady_max": 192
+  },
+  "csms-backend": {
+   "cpu_pct_steady_avg": 0.7,
+   "cpu_pct_peak": 104.36,
+   "mem_mb_steady_max": 112
+  }
+ },
+ "stack_mem_mb_peak": 875,
+ "postgres": {
+  "connections_peak": 23,
+  "steady_qps_avg": 317.7,
+  "steady_mean_stmt_ms": 0.044,
+  "peak_mean_stmt_ms": 0.198,
+  "worst_statement_mean_ms": 9.31
+ },
+ "rabbitmq": {
+  "steady_publish_per_s": 33.6,
+  "steady_deliver_per_s": 34.5,
+  "queued_peak": 615,
+  "publish_per_s_peak": 227.0
+ }
+}

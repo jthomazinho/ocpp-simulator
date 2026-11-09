@@ -1,0 +1,138 @@
+{
+ "tier": "fixed-100",
+ "notes": [
+  "start N=100 ramp=50 tx=0.2 mix16=0",
+  "ramp done connected=100 registered=100 after 20s",
+  "steady 120s done",
+  "commands sent (stop targets: 5, ocpp1.6: 0)",
+  "restart gateway",
+  "reconnect: all 100 registered again after 73s",
+  "end"
+ ],
+ "generator": {
+  "connected_end": 100,
+  "boot_accepted": 200,
+  "boot_p95_ms": 2328,
+  "disconnects_total": 100,
+  "disconnects_before_restart": 0,
+  "steady_call_p50_ms": 14.0,
+  "steady_call_p95_ms": 32.0,
+  "ramp_call_p95_ms_max": 1239,
+  "in_tx_steady": 20,
+  "registered_steady_min": 100,
+  "tx_failed": 0,
+  "errors": {
+   "http:503": 24,
+   "ws:WebSocket was closed before the connection was established": 24,
+   "ws:read ECONNRESET": 88,
+   "ws:socket hang up": 23,
+   "timeout:BootNotification": 1,
+   "boot:timeout": 1,
+   "timeout:StatusNotification": 11
+  },
+  "gen_rss_mb": 66
+ },
+ "commands": [
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 137,
+   "effect_ms": 192
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 149,
+   "effect_ms": 170
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 129,
+   "effect_ms": 151
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 138,
+   "effect_ms": 159
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStartTransaction",
+   "arrive_ms": 132,
+   "effect_ms": 155
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 118,
+   "effect_ms": 148
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 134,
+   "effect_ms": 154
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 139,
+   "effect_ms": 158
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 134,
+   "effect_ms": 152
+  },
+  {
+   "version": "2.0.1",
+   "action": "requestStopTransaction",
+   "arrive_ms": 129,
+   "effect_ms": 146
+  }
+ ],
+ "command_coverage": {
+  "2.0.1 requestStartTransaction": 5,
+  "2.0.1 requestStopTransaction": 5
+ },
+ "remote_stop_ocpp16_measured": false,
+ "resources": {
+  "citrineos": {
+   "cpu_pct_steady_avg": 5.6,
+   "cpu_pct_peak": 122.27,
+   "mem_mb_steady_max": 195
+  },
+  "postgres": {
+   "cpu_pct_steady_avg": 5.9,
+   "cpu_pct_peak": 40.78,
+   "mem_mb_steady_max": 196
+  },
+  "amqp-broker": {
+   "cpu_pct_steady_avg": 2.3,
+   "cpu_pct_peak": 13.25,
+   "mem_mb_steady_max": 251
+  },
+  "csms-backend": {
+   "cpu_pct_steady_avg": 7.2,
+   "cpu_pct_peak": 51.95,
+   "mem_mb_steady_max": 114
+  }
+ },
+ "stack_mem_mb_peak": 935,
+ "postgres": {
+  "connections_peak": 31,
+  "steady_qps_avg": 130.2,
+  "steady_mean_stmt_ms": 0.102,
+  "peak_mean_stmt_ms": 0.278,
+  "worst_statement_mean_ms": 8.85
+ },
+ "rabbitmq": {
+  "steady_publish_per_s": 7.7,
+  "steady_deliver_per_s": 6.5,
+  "queued_peak": 1,
+  "publish_per_s_peak": 16.2
+ }
+}

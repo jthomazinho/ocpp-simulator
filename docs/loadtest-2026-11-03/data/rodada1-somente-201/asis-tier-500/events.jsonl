@@ -1,0 +1,2 @@
+{"ev":"note","at":1793727317413,"msg":"start N=500 ramp=50 tx=0.2"}
+{"ev":"note","at":1793727418885,"msg":"aborted at 80s: as-is gateway stuck at 193/500 boots and crash-restarting (pool exhausted)"}
