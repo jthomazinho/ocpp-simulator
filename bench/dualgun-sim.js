@@ -14,6 +14,7 @@
 //     GET /mode?dy=1                      DY3225 firmware quirks on/off (see below)
 //     GET /hold?evse=1&on=1               accept RequestStartTransaction but hold the start
 //     GET /release?evse=1                 run the oldest held start now (a late start)
+//     GET /orphan?evse=1&token=X&end=1  Updated (+Ended), no Started before it
 //     GET /reboot?stale=1                 reboot: BootNotification, transactions dropped;
 //                                         stale=1 also replays a malformed Ended
 //
@@ -426,6 +427,24 @@ http.createServer((req, res) => {
   if (u.pathname === '/reboot') {
     reboot(u.searchParams.get('stale') === '1')
       .then((r) => res.end(JSON.stringify(r)))
+      .catch((err) => res.end(JSON.stringify({ ok: false, err: err.message })));
+    return;
+  }
+  if (u.pathname === '/orphan') {
+    // A transaction the CSMS never saw start: Updated (and optionally Ended)
+    // with no Started before it - how the DY3225 orphans of 11/09 were born.
+    const e = state.evses[u.searchParams.get('evse') || '1'];
+    const token = u.searchParams.get('token');
+    const end = u.searchParams.get('end') === '1';
+    if (!e || e.transactionId) return res.end(JSON.stringify({ ok: false, err: 'evse busy' }));
+    e.transactionId = randomUUID();
+    e.idToken = token ? { idToken: token, type: 'ISO14443' } : null;
+    e.meterWh += Number(u.searchParams.get('kwh') || '0.4') * 1000;
+    const tx = e.transactionId;
+    statusNotification(e.id, 'Occupied')
+      .then(() => transactionEvent(e, 'Updated', 'MeterValuePeriodic', { evse: { id: e.id, connectorId: 1 } }))
+      .then(() => (end ? stopTransaction(e, 'Local') : null))
+      .then(() => res.end(JSON.stringify({ ok: true, transactionId: tx, kwh: +(e.meterWh / 1000).toFixed(4), ended: end })))
       .catch((err) => res.end(JSON.stringify({ ok: false, err: err.message })));
     return;
   }
