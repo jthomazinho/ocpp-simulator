@@ -33,6 +33,12 @@ const STATION = process.env.STATION_ID;
 const BASE = (process.env.GATEWAY_URL || 'wss://ocpp.power.spotside.dev/2.0.1').replace(/\/+$/, '');
 const AUTH = process.env.OCPP_BASIC_AUTH;
 const WS_URL = `${BASE}/${STATION}`;
+// Identity reported in BootNotification and the local control port, so several
+// stations can run side by side on one host (one process per station).
+const MODEL = process.env.MODEL || 'DGS-22 Dual';
+const VENDOR = process.env.VENDOR || 'Spotside Bench';
+const FIRMWARE = process.env.FIRMWARE || '1.0.1';
+const CONTROL_PORT = Number(process.env.CONTROL_PORT || 3179);
 
 // Each gun: 11 kW nominal, three-phase 230 V — the shape of the DY3225 bench unit.
 const RATED_W = 11000, VOLTAGE = 230, PHASES = 3;
@@ -270,8 +276,8 @@ function connect() {
       state.boot = await call('BootNotification', {
         reason: 'PowerUp',
         chargingStation: {
-          model: 'DGS-22 Dual', vendorName: 'Spotside Bench',
-          firmwareVersion: '1.0.1', serialNumber: STATION,
+          model: MODEL, vendorName: VENDOR,
+          firmwareVersion: FIRMWARE, serialNumber: STATION,
         },
       });
       await statusNotification(1, 'Available');
@@ -326,7 +332,16 @@ function connect() {
     setTimeout(connect, 5000);
   });
   ws.on('error', (e) => log('ws error:', e.message));
-  ws.on('unexpected-response', (_req, res) => log('handshake refused:', res.statusCode));
+  // With an 'unexpected-response' listener attached, ws emits neither 'error'
+  // nor 'close' for a refused upgrade, so the reconnect has to be scheduled
+  // here. Without it a single 502 during a gateway restart left the harness
+  // disconnected for good (VPS bench, 2026-11-11 until 2026-11-23).
+  ws.on('unexpected-response', (req, res) => {
+    log('handshake refused:', res.statusCode, '- retrying in 15s');
+    res.resume();
+    req.destroy();
+    setTimeout(connect, 15000);
+  });
 }
 
 // Reboot: the socket stays up (a real reboot reconnects within seconds), but
@@ -340,7 +355,7 @@ async function reboot(stale) {
   }
   state.boot = await call('BootNotification', {
     reason: 'PowerUp',
-    chargingStation: { model: 'DGS-22 Dual', vendorName: 'Spotside Bench', firmwareVersion: '1.0.1', serialNumber: STATION },
+    chargingStation: { model: MODEL, vendorName: VENDOR, firmwareVersion: FIRMWARE, serialNumber: STATION },
   });
   await statusNotification(1, 'Occupied');
   await statusNotification(2, 'Occupied');
@@ -436,6 +451,6 @@ http.createServer((req, res) => {
     return;
   }
   res.end(JSON.stringify({ ok: true }));
-}).listen(3179, '127.0.0.1', () => log('control plane on 127.0.0.1:3179'));
+}).listen(CONTROL_PORT, '127.0.0.1', () => log(`control plane on 127.0.0.1:${CONTROL_PORT}`));
 
 connect();
